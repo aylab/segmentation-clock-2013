@@ -730,45 +730,48 @@ void ofeatures(glevels *g, double eps, int nfinal, bool wild, data &d) {
      For the wild type, the peak and trough at the middle of the graph are also calculated
      in order to ensure that the oscillations are sustained.
      */
-    double tmaxlast = 0, tmaxpenult = 0, mmaxlast = 0, mmaxpenult = 0;
-    double tminlast = 0, tminpenult = 0, mminlast = 0, mminpenult = 0;
+	double tmaxlast = 0, tmaxpenult = 0, mmaxlast = 0, mmaxpenult = 0;
+	double tminlast = 0, tminpenult = 0, mminlast = 0, mminpenult = 0;
 		
-    for (int n = 1; n < nfinal - 1; n++) {
+	for (int n = 1; n < nfinal - 1; n++) {
         // check if the current point is a peak
-	if (g -> mh1[0][n + 1] < g -> mh1[0][n] && g -> mh1[0][n] > g -> mh1[0][n - 1]) {
-	    tmaxpenult = tmaxlast;
-	    tmaxlast = n*eps;
-	    mmaxpenult = mmaxlast;
-	    mmaxlast = g -> mh1[0][n];
-	}
+		if (g -> mh1[0][n + 1] < g -> mh1[0][n] && g -> mh1[0][n] > g -> mh1[0][n - 1]) {
+			tmaxpenult = tmaxlast;
+			tmaxlast = n*eps;
+			mmaxpenult = mmaxlast;
+			mmaxlast = g -> mh1[0][n];
+		}
 		
         // check if the current point is a trough
-	if (g -> mh1[0][n + 1] > g -> mh1[0][n] && g -> mh1[0][n] < g -> mh1[0][n - 1]){
-	    tminpenult = tminlast;
-            tminlast = n * eps;
-	    mminpenult = mminlast;
-	    mminlast = g -> mh1[0][n];
+		if (g -> mh1[0][n + 1] > g -> mh1[0][n] && g -> mh1[0][n] < g -> mh1[0][n - 1]){
+			tminpenult = tminlast;
+			tminlast = n * eps;
+			mminpenult = mminlast;
+			mminlast = g -> mh1[0][n];
+		}
 	}
-    }
 	
-    if (wild) {
+	if (wild) {
         // calculate the peak and trough at the middle of the graph
-	double mmaxlast2 = 0.0, mminlast2 = 0.0;
-	for(int m = 2; m < nfinal/2; m++){
-	    if(g -> mh1[0][m + 1] < g -> mh1[0][m] && g -> mh1[0][m] > g -> mh1[0][m - 1]){
-	        mmaxlast2 = g -> mh1[0][m];
-	    }
-	    if(g -> mh1[0][m + 1] > g -> mh1[0][m] && g -> mh1[0][m] < g -> mh1[0][m - 1]){
-	        mminlast2 = g -> mh1[0][m];
-	    }
+		double mmaxlast2 = 0.0, mminlast2 = 0.0;
+		for(int m = 2; m < nfinal/2; m++){
+			if(g -> mh1[0][m + 1] < g -> mh1[0][m] && g -> mh1[0][m] > g -> mh1[0][m - 1])
+			{
+				mmaxlast2 = g -> mh1[0][m];
+			}
+			if(g -> mh1[0][m + 1] > g -> mh1[0][m] && g -> mh1[0][m] < g -> mh1[0][m - 1])
+			{
+				mminlast2 = g -> mh1[0][m];
+			}
+		}
 		
         // in order to avoid dividing by zero in case a trough is 0, set it to 1
-	    if(mminlast2 == 0.0 || mminlast == 0.0) {
-		mminlast2 = 1.0;
-                mminlast = 1.0;
-	    }
-	    d.peaktotrough2 = mmaxlast2/mminlast2;
-        }
+		if(mminlast2 == 0.0 || mminlast == 0.0) {
+			mminlast2 = 1.0;
+            mminlast = 1.0;
+		}
+		d.peaktotrough2 = mmaxlast2/mminlast2;
+    }
 	
 	d.period = tmaxlast-tmaxpenult;
 	d.amplitude = mmaxlast-mminlast;

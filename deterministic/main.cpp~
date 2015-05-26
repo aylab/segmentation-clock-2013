@@ -110,9 +110,9 @@ int main(int argc, char** argv)
             strcat(output_file, mutants[mut].c_str());
             
             string mutant;
-	    ostringstream convert;
-	    convert << output_file;
-	    mutant = convert.str();
+			ostringstream convert;
+			convert << output_file;
+			mutant = convert.str();
             mutants[mut] = mutant;
             
             cout << terminal_blue << "Creating " << terminal_reset << output_file << " directory if necessary ... ";
@@ -129,7 +129,7 @@ int main(int argc, char** argv)
             cout << terminal_blue << "Creating oscillation features file " << terminal_reset << ofeat_file << " . . . " << endl;
             oft.open(ofeat_file, fstream::out);
             oft<<"set,wt,period,amplitude,peaktotrough,delta,period,amplitude,peaktotrough,her1,period,amplitude,peaktotrough,her7,period,amplitude,peaktotrough,her13,period,amplitude,peaktotrough,her713,period,amplitude,peaktotrough" << endl;
-	    cout << terminal_done << endl;
+			cout << terminal_done << endl;
         } catch (ofstream::failure) {
             cout << terminal_red << "Couldn't create " << ofeat_file << "!" << " Exit status 1." << terminal_reset << endl;
             exit(1);
@@ -142,8 +142,8 @@ int main(int argc, char** argv)
             cout << terminal_blue << "Creating oscillation features file " << terminal_reset << ofeat_file << " . . . " << endl;
             oft.open(ofeat_file, fstream::out);
             oft << "set,per wt,amp wt,peak to trough wt,per delta,amp delta,peak to trough delta,per her1,amp her1,peak to trough her1,per her7,amp her7,peak to trough her7,per her13,amp her13,peak to trough her13,per her713,amp her713,peak to trough her713" << endl;
-	    cout << terminal_done << endl;        
-	} catch (ofstream::failure) {
+			cout << terminal_done << endl;        
+		} catch (ofstream::failure) {
             cout << terminal_red << "Couldn't create " << ofeat_file << "!" << " Exit status 1." << terminal_reset << endl;
             exit(1);
         }
@@ -285,5 +285,5 @@ int main(int argc, char** argv)
 	}
     allpassed.close();
     oft.close();
-    return 0;
+	return 0;
 }

@@ -58,7 +58,7 @@ struct glevels {
     double** ph1313;
 	
     glevels(int, int);
-    ~glevels();
+	~glevels();
 };
 
 struct rates{
