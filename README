@@ -1,0 +1,173 @@
+SIMULATOR FOR ZEBRAFISH SEGMENTATION
+
+
+===============================================
+INSTALLATION REQUIREMENTS
+===============================================
+
+The main simulation software requires g++ and standard C++ libraries and a UNIX machine to compile on. The data processing scripts require Python (www.python.org) and the Enthought python libraries (www.enthought.com). To create movies out of the generated timestep images, ffmpeg (ffmpeg.org) is also required. Instructions for installing each are included in the INSTALLATION INSTRUCTIONS section below.
+
+This software is designed to run on 64-bit UNIX systems and was tested for Linux (Ubuntu 10.10) and Mac (OSX 10.7). While most of the software would work fine on Windows machines, certain aspects of the code would not function correctly and the installation process would have to change. For those interested in porting the software to Windows, consider adapting the file operations (such as mkdir) used in the simulation to the Windows equivalents and using standard Windows installation practices. Because the main code has no UNIX specific library dependencies other than file operations, it should be a trivial process.
+
+While there are no actual lower limits for processing power in order to successfully run these simulations, due to their computationally intensive nature we recommend distributing multiple parameter sets across multiple computers in order to maintain adequately small simulation times. With this in mind, we strongly suggest some form of parallel computing to properly take advantage of this code. Instructions on possible ways to achieve this are included at the end of the following section.
+
+
+===============================================
+INSTALLATION INSTRUCTIONS
+===============================================
+
+1) Extract the contents of this gzipped tar file into an uncompressed directory, which we will now refer to as DIR.
+2) Using your favorite command-line shell, navigate to DIR and run the command "make". This will compile the C++ code on your local machine and install any necessary libraries for the data-processing scripts.
+3) The executables "stochastic" and "deterministic" will now be in DIR. To run a stochastic simulation, type into the shell "./stochastic -option1 value1 -option2 value2". To run a deterministic simulation, type into the shell "./deterministic -option1 value1 -option2 value2". -option1 is something like -x or --width and value1 is something like 4.
+4) If all went well then you're done. Place DIR wherever you want (/usr/bin/ perhaps) and the simulation file and its data-processing scripts are ready to go.
+5) If you encountered an error when compiling the simulation program, your computer may not be able to run our software. Make sure you're running a 64-bit UNIX based system.
+6) Due to their sizes and configuration possibilities, we have not included python, Enthought, or ffmpeg in this package, but you can download the latest versions of them at www.python.org/download, www.enthought.com/products/edudownload.php, and ffmpeg.org/download.html, respectively (Enthought is free for academic purposes provided that you have a .edu email).
+
+
+===============================================
+HOW TO USE THIS SOFTWARE
+===============================================
+
+There are four parts to this software package:
+1) The deterministic simulation and parameter finding program
+2) The stochastic simulation program
+3) The stochastic parameter finding/data processing script
+4) The data plotting script
+
+
+HOW TO USE THE DETERMINISTIC SIMULATION PROGRAM:
+Running "./deterministic" will run a deterministic simulation of one parameter set with the default arguments(2x1 cells, "input.txt" input file, "allpassed.csv" output file, eps = 0.01 among other things). For every argument not given, the default one is used. Therefore it is important to read over the list of arguments and their default values in order to understand what the simulation will do without your explicit input.
+The list of arguments is as follows:
+
+-x, --width        : the tissue width (in cells), 2 for two-cell system, min=3 for chain, min=4 and even for tissue, default=2"
+-y, --height       : the tissue height (in cells), 1 for two-cell system and chain, min=4 and even for tissue, default=1"
+-e, --epsilon      : the size of the time step to be used for solving the DDEs using Euler's method"
+-m, --minutes      : the maximum number of minutes to simulate before ending, min=1, default=1200"
+-f, --ofeatures    : the path and file in which to print oscillation features
+-p, --parameters   : the number of parameters for which to simulate the model, min=1, default=1
+-s, --seed         : the seed to generate random numbers, min=1, default=time
+-i, --input        : the input path and file to accept parameters from, default=none
+-o, --output       : the path and file to print the output (i.e. parameters which passed conditions) to, default=det-allpassed.csv
+-a, --propensities : the threshold for the propensity functions which could be used in the stochastic simulation, min=1, default=none
+-w, --write        : print the concentrations of the simulations to file, default=unused
+-c, --no-color     : disable coloring the terminal output, default=unused
+-q, --quiet        : hide the terminal output, default=unused
+-l, --licensing    : view licensing information (no simulations will be run)
+-h, --help         : view usage information (i.e. this) (no simulations will be run)
+
+The arguments may be given in any order, except for -l and -h, which must be given as the only argument. There is no functional difference between the short and long versions of the arguments; use the short versions if you don't care about readability and the long versions if you want the given arguments to be very clearly labeled. Numeric arguments do not have a maximum value other than the maximum size of a 32-bit unsigned integer (0 to 2^32-1), or in the case of epsilon and the maximum propensity value, a 64-bit double (about 16 decimal digits of precision and a much larger range than ever needed). The input and output paths can be absolute or relative. By default, the system time is used as the seed for generating random numbers, but by specifying a particular number you can recreate results as many times as needed.
+
+
+HOW TO USE THE STOCHASTIC SIMULATION PROGRAM:
+Running "./stochastic" will run a stochastic simulation of one parameter set with the default arguments (2x1 cells, "input.txt" input file, and "output" output directory, among other things). For every argument not given, the default one is used. Therefore, it is important to read over the list of arguments and their default values in order to understand what the simulation will do without your explicit input.
+The list of arguments is as follows:
+
+-x, --width       : the tissue width (in cells), 2 for two-cell system, min=3 for chain, min=4 and even for tissue, default=2
+-y, --height      : the tissue height (in cells), 1 for two-cell system and chain, min=4 and even for tissue, default=1
+-m, --minutes     : the maximum number of minutes to simulate before ending, min=1, default=1200
+-t, --time-steps  : the maximum number of time steps to simulate before ending, min=1, default=10^12
+-r, --runs        : the number of runs, min=1, default=1
+-s, --seed        : the seed to generate random numbers, min=1, default=time
+-i, --input       : the input path and file to accept parameters from, default=input.txt
+-o, --output      : the path to print the output (i.e. results) to, default=output
+-l, --con-level   : the concentration level to print (her1, her7, her13, delta, Her1, Her7, Her13, Delta, or a dimer (e.g. Her1Her13)), default=her1
+-g, --granularity : the granularity of the output, i.e. print values for every x number of minutes passed, min=0, default=0.1
+-p, --print       : printing interval in minutes (for debugging), min=1, default=1200
+-k, --keep-seed   : store the seed in the specified file relative to the output directory, default=seed.txt
+-a, --approximate : approximate the simulation for faster results, default=unused
+-c, --no-color    : disable coloring the terminal output, default=unused
+-q, --quiet       : hide the terminal output, default=unused
+-l, --licensing   : view licensing information (no simulations will be run)
+-h, --help        : view usage information (i.e. this) (no simulations will be run)
+
+The arguments may be given in any order. There is no functional difference between the short and long versions of the arguments; use the short versions if you don't care about readability and the long versions if you want the given arguments to be very clearly labeled. Numeric arguments do not have a maximum value other than the maximum size of a 32-bit unsigned integer (0 to 2^32-1), or in the case of the granularity option, a 64-bit double (about 16 decimal digits of precision and a much larger range than ever needed). The input and output paths can be absolute or relative, but the seed filename is relative to the output directory for the sake of convenience. By default, the system time is used as the seed for generating random numbers, but by specifying a particular number you can produce consistent results (perhaps for debugging purposes). Only one concentration level can be printed at a time.
+
+
+HOW TO USE THE STOCHASTIC PARAMETER FINDING/DATA PROCESSING SCRIPT:
+There is a main script named "seg-clock" that accepts a list of parameters, runs them stochastically, and produces a list of their properties and whether or not they pass as biologically realistic parameters. This script calls other scripts, which can also be called individually, that process and analyze the data in useful ways. Note that it is designed for bash and some of the syntax may not be compatible with other shells such as tcsh. The list of arguments to seg-clock is as follows:
+
+first argument  : the input file containing one parameter set per line
+second argument : the directory where the data is or will be (if -J then this directory must already contain the simulation concentrations)
+
+third to nth optional arguments:
+-S, --scratch         : use scratch space (useful on distributed systems on which synchronized I/O is expensive in terms of processing/bandwidth and non-synchronized scratch spaces can be used for intermediate results)
+-J, --just-analyze    : just analyze; do not run the simulations (the simulations must already exist)
+-F, --find-parameters : find parameters (i.e. stop if a set does not meet the proper criteria)
+-D, --delete-failed   : delete directories for parameters that fail (only applies when -F is used)
+
+The rest of the arguments are passed on to the stochastic simulation described in the section above. Two of the arguments for the stochastic simulation, -r|--runs and -m|--minutes, if specified, will be considered by seg-clock and the associated scripts when analyzing the data. In other words, if -m is set to 600, scripts that need the number of minutes the simulation ran for will be passed the value of 600. Other than runs and minutes, no other stochastic simulation arguments apply to other scripts.
+
+The seg-clock script works as follows:
+1) Separate the parameter sets file by line so that each parameter set may be considered individually
+2) For each parameter set, create a directory named par#, where # starts at 0 and increases with each set, and place an input file named par#.txt, containing the parameter set, inside par#
+3) If -J isn't set, run the stochastic simulation for the wild type with the given arguments inside par#/wt and then move each created run##.txt into a directory named run##, where ## starts at 0 and increases with each run, just as the stochastic simulation usually works
+4) If -J isn't set, smooth the run data using analysis/smoothing, creating a run##_smooth.txt for every run##.txt
+5) Calculate the synchronization score for the wild type using analysis/synchronization.py and stop testing the current parameter set if -F is set and the score fails
+6) Calculate the oscillation features of the wild type's data using analysis/ofeatures, creating period.txt and amplitude.txt inside run##
+7) If -J isn't set, run the stochastic simulation for the delta mutant and smooth its data
+8) Calculate the oscillation features of the delta mutant's data and stop testing the current parameter set if -F is set and the ratio of its features to the wild type's fails
+9) Simulate and find oscillation features for the Her13, Her1, Her7, and Her713 mutants, ensuring each mutant satisfies proper oscillation feature conditions
+10) Store the results in par#/behavior.csv regardless of whether this set passed or failed and store the parameter number and set in par#/allpassed.csv if it passed and -F is set
+11) If -S is set, par# is moved from scratch space to the final output directory
+
+Any of the above mentioned scripts may be run individually, and calling the script with no arguments will print its usage information. Here is a description of each script, all of which can be found in the analysis directory:
+1) average-runs.py averages each run found in the given directory into one file that contains the mean of each time point for each run, interpolating time points when some runs do not include them
+2) calc is a bash script that calls the bc program with the scale argument set to 8, meaning all results will have 8 decimal points (this is used by seg-clock to ensure predictable accuracy and digit length)
+3) compare-files.py compares two files and prints how many unique lines each file has and how many lines are in common (useful for differentiating parameter sets)
+4) fix-whitespace.py fixes the way Xcode treats python whitespace and is useful for editing any python files on a Mac
+5) ofeatures calculates the oscillation features of a given run and produces period.txt and amplitude.txt, which contain the list of periods and amplitudes for each cell for each run, respectively
+6) shared.py contains shared functionality between python scripts and must remain in the same directory as any script that requires it
+7) smoothing accepts a run and produces a smoothed version of it
+8) split is a bash script that splits a given parameter set file into chunks of # lines, where # is a given integer (useful for splitting up huge parameter set files into more manageable chunks)
+9) synchronized.py prints out the synchronization score (i.e. how synchronized the cells are on a scale from -1 to 1) of the given run starting at the given time (since early data is not always indicative of the overall trend)
+10) t-test calculates the t-test score for two given runs, indicating how likely they are to have come from the same distribution (in this case parameter set)
+
+There are also two scripts for plotting data, which are described below.
+
+
+HOW TO USE THE DATA-PLOTTING SCRIPTS:
+There are three python scripts and a utility (ffmpeg) used in data-plotting. By running the analyze-run bash script, you can automatically run any of the scripts for a given parameter set. The script descriptions are as follows:
+1) heatmaps.py takes a directory, runs, feature (period/amplitude), image name, and start and end ranges and creates heatmaps for the feature that represent the frequency of the feature for each cell
+2) plot.py takes a run (smoothed runs perform better) and a directory to put the plots into, and produces plots for both all cells and a combined average measuring the concentration levels stored in the file (the other two arguments plots.py takes are strings for what the protein/mRNA level the plot measures and what mutation the data is from)
+3) tissue-snapshots.py takes a run and a directory to place the resulting images into, and makes an image of the cell tissue at every time point recorded in the run file, ready for making a movie with ffmpeg
+4) ffmpeg is a utility packaged with our software that can make a movie out of a series of images; run "ffmpeg -y -qscale 5 -r <frames per second> -b <bitrate> -i <images directory>/<image prefix>%04d.tiff <movie file>" to replicate the movies we made
+
+analyze-run takes the following arguments:
+1) the directory name of the parameter set
+2) either "all" or a run number for which to process the data
+3) either "all" or a mutation for which to process the data (wt, her1, her7, her13, her713, delta)
+-i or --images produces image files for each timestep
+-m or --movie produces a movie from the images files (will create the images if they don't already exist)
+-p or --plot produces an image of the plots for all cells and an image of the plot for their average
+-h or --heat produces heat maps for the period and amplitude
+-q or --quiet hides output messages, making the processing scripts run without printing anything to the terminal
+
+Example: analyze-run par23 all her7 -imh
+
+
+HOW TO DISTRIBUTE MULTIPLE PARAMETER SETS IN A PARALLEL COMPUTING ENVIRONMENT:
+We used a cluster of servers with the TORQUE PBS scheduling system to distribute jobs across multiple processors. Because every cluster functions differently and it is unlikely that specific configurations and optimizations will apply to other systems, we will not go into too much detail. We have, however, included a modified version of seg-clock called seg-clock-distributed that allows each parameter set to be distributed to a different processor in a cluster, allowing parallel computation of each set. This is largely the motivation for the scratch space option in seg-clock (described in more detail above), although it can still be useful in non-distributed environments. For those interested in implementing a similar setup, the script is well documented and can be easily modified for any PBS-based system.
+
+
+===============================================
+SAMPLE STUDY
+===============================================
+
+See the SAMPLE file in the same directory as this file for a sample study of the simulations and scripts.
+
+
+===============================================
+LICENSING
+===============================================
+
+See the LICENSE file in the same directory as this file for licensing information.
+
+
+===============================================
+AUTHOR CONTACT INFORMATION
+===============================================
+
+This software was written by Ahmet Ay (aay@colgate.edu), Jack Holland (jholland@colgate.edu), and Adriana Sperlea (asperlea@colgate.edu).
+The associated article, ???, can be found at ???
+For any questions, comments, or bug reports, contact Ahmet Ay at Colgate University.
+

@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# $1 = the number of times to run the simulation
+# $2 = output folder for all runs
+# $3 = the template file to use
+# this function prints out how to use this script and then exits
+function usage () {
+	echo "Usage: run-deterministic <number of runs> <output folder>"
+	exit 0
+}
+
+# this function accepts a directory name and creates it if it doesn't already exist
+function mk_dir () {
+	if [ ! -d "$1" ]; then
+		mkdir "$1"
+	fi
+}
+
+# this function submits a simulation instance to the job queue
+function run_sim () {
+	echo "
+	#PBS -N deterministic-$run
+	#PBS -l nodes=1:ppn=1
+	#PBS -l mem=500mb
+	#PBS -l file=1gb
+	#PBS -q main
+	#PBS -m n
+	#PBS -j oe
+	#PBS -l walltime=60:00:00
+	#PBS -r y
+	#PBS -o $dir/terminal-output.txt
+	#PBS -e $dir/terminal-errors.txt
+	cd \$PBS_O_WORKDIR
+	
+	cd $dir
+	./deterministic -p 1000 
+	" > "$dir/pbs-job"
+	qsub "$dir/pbs-job"
+}
+
+# make sure the user provided proper arguments
+if [ $# -ne 3 ]; then
+	usage
+fi
+
+runs=$1
+odir=$2
+run=0
+mkdir "${odir}"
+
+while [ $run -lt $runs ]; do
+	dir="${odir}/run${run}"
+	mk_dir $dir
+	cp -r $3/* $dir/
+	run_sim
+	((run++))
+done
+

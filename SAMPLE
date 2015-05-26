@@ -1,0 +1,74 @@
+SAMPLE STUDY
+
+
+=========================================================
+HOW TO USE THIS SAMPLE STUDY
+=========================================================
+
+The files corresponding to this sample study can be found in the sample-study directory. This is an example of how to use this software and demonstrate its main uses.
+
+
+=========================================================
+USE THE DETERMINISTIC SIMULATOR TO FIND PARAMETERS
+=========================================================
+
+In order to find parameter sets that satisfy the wild type and mutant conditions, you can use an input file containing parameter sets, a seed according to which the deterministic simulation will generate random parameters, or not provide any input at all, in which case the program will use the system time as a seed and generate random parameters. In this sample study, we used 9 million randomly generated parameter sets, run through the deterministic code in order to find which ones pass the required conditions.
+
+To run this, navigate to the main directory, and enter:
+
+./deterministic -p 9000000
+
+The -p indicates how many sets to generate (see README file for more information).
+
+After the execution has finished, you will be able to find the parameter sets which passed the conditions in the file det-allpassed.csv, unless you specify another location using the -o option.  If you want to change mutant or wild type conditions for your own simulations, you can do so in the functions.h file.
+
+The det-allpassed.csv that you can find in the sample directory was obtained from a simulation of 9 million sets, with a propensity threshold of 10000 in order to speed up stochastic runs. The mutant conditions used were:
+
+0.97 < her1 period / wild type period < 1.03
+0.97 < her7 period / wild type period < 1.03
+1.03 < her13 period / wild type period < 1.09
+1.03 < her713 period / wild type period < 1.09
+1.04 < delta period / wild type period < 1.30
+
+Your results may vary depending on the conditions and parameters that you chose for your simulation. In our case, we found ~32000 parameter sets satisfying our requirements.
+
+
+=========================================================
+USE THE SEG-CLOCK SCRIPT TO REFINE PARAMETERS
+=========================================================
+
+The seg-clock script can be used for a number of purposes. See the README file for more detailed information about its options. In this sample study we used it to replicate the behavior of the deterministic program and test for the same mutant conditions using the stochastic simulation. This is necessary for multiple reasons. First, there is no measure of synchronization between the cells in the deterministic simulation, since the cells all start with the same parameters and since at every single time step all the reactions take place concurrently, there is no way to replicate synchronous or asynchronous behavior. Therefore, the stochastic simulation is used to prune out the parameter sets which do not reflect the synchronous behavior of the cells in the wild type and the asynchronous behavior in the delta mutant -- as observed experimentally. Second, sometimes simply due to to stochasticity or noise in the resulting data, the stochastic simulation differs from the deterministic one.
+
+To run the seg-clock script, navigate to the main directory, and enter:
+./seg-clock det-allpassed.csv stochastic-results -F -x 4 -y 4 -r 5
+
+In our test, the det-allpassed.csv file is in the same directory as seg-clock. Either make sure that this is the case, or specify the full path to the file in the arguments. Note that the directory stochastic-results will be created if it does not exist. The -F indicates that you want the script to prune for parameters that satisfy the conditions, and therefore enables optimizations that stop the simulation early if one of the conditions is not satisfied. Notice the arguments passed to the stochastic simulation: -x 4 -y 4 -r 5. This sets the tissue width and height to 4 cells and specifies that each parameter set should be run 5 times to reduce the intrinsic noise of stochastic simulations. See the README file for more options and their explanations. Multiple runs are not necessary for deterministic simulations since the same results are always produced for one parameter set. You can specify a width and height for deterministic as well, but the results are equivalent to the 2x1 system. You can verify this observation by running the same parameter set with multiple tissue sizes, although larger tissue sizes incur a longer running time.
+
+After seg-clock has finished running, the stochastic-results directory will contain the following: a directory for each parameter set you have simulated and two files, allpassed.csv and behavior.csv. Each parameter set directory contains a file with the parameter set and a directory for each mutant condition that was simulated (some may not have been reached due to failure in earlier condition testing). These directories contain a directory for each run with run#.txt concentration file, period.txt, and amplitude.txt, where # represents the run number. The allpassed.csv found in the sample directory contains the parameter which passed the same period conditions as in deterministic, but were further pruned for our particular study, with the following conditions:
+
+delta synchronization score < 0.7
+wild type synchronization score > 0.8
+delta amplitude / wild type amplitude < 0.95
+her 7 amplitude / wild type amplitude < 0.85 or her 7 synchronization score < 0.8
+her 1 amplitude / wild type amplitude < 1.06
+her 7 amplitude / wild type amplitude < 1
+her 13 synchronization score > 0.8
+her 13 amplitude / wild type amplitude > 0.85
+her 713 synchronization score > 0.8
+her 713 amplitude / wild type amplitude > 0.85
+
+
+The file behavior.csv lists the intermediate results for each parameter set (i.e. synchronization scores and oscillation features) as well as whether the set passed, failed, or stopped due to error. More detailed information is provided in the terminal output, which prints detailed information about script behavior at each step.
+
+If you want to change mutant or wild type conditions for your own simulations, rather than having to rerun the sometimes time consuming stochastic simulations, you can use the -J option for seg-clock to just analyze the data without recreating the run files. Note that if you have generated the data using -F, there will be no data for the mutants that failed in the previous run. If you are making your conditions more stringent, this should not be a problem, but more lenient conditions may require you to rerun the simulations. If you want to experiment with many different conditions, we suggest running seg-clock without -J or  -F in order to produce data for all mutants. If you're running low on storage space, enter -FD to delete parameter directories for parameters that did not pass the conditions.
+
+=========================================================
+USE THE PLOTTING SCRIPTS TO PRODUCE VISUAL RESULTS
+=========================================================
+
+Now that concentration levels for biologically realistic parameter sets have been produced, the analyze-run script allows you to create plots, images, heat maps and a movie showing the oscillations in the tissue. This script works at the level of one parameter set, but can be run on one or all mutants, for either an individual run or for all the runs in the mutant folder. All these are options given to the script. See the README file for a detailed explanation.
+To run this, navigate to the main directory, and enter, for example:
+./analyze-run par_eg all wt -i -m -h
+This would create an image directory, heat maps and a movie using all the runs in the wild type.
+
+In the sample files you can find the movie and a few sample snapshots for run 0 of the wild type, as well as all the plots and heat maps for all the runs and mutants.

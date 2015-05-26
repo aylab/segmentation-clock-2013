@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Splits a parameter set file into chunks
+# Copyright (C) 2012 Ahmet Ay, Jack Holland, Adriana Sperlea
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# $1 = the parameter set file
+# $2 = the number of lines to put into each file (the last file may have fewer if this argument does not evenly divide into the input file)
+
+# this function prints out how to use this script and then exits
+function usage () {
+	echo "Usage: split <parameter sets> <number of lines to split by>"
+	exit 0
+}
+
+if [ $# -ne 2 ] || [ ! -e $1 ]; then
+	usage
+fi
+
+sets=$1
+filename=${sets%%.*}
+fileext=${sets#*.}
+lines=`wc -l $sets`
+lines=${lines%" "*}
+splitby=$2
+cline=$splitby
+endline=$(($lines+$splitby))
+fileno=0
+
+while [ $cline -lt $endline ]; do
+	if [ $cline -gt $lines ]; then
+		splitby=$(($endline-$cline))
+	fi
+	head -$cline $sets | tail -$splitby > "$filename-$fileno.$fileext"
+	cline=$(($cline+$splitby))
+	((fileno++))
+done
+
