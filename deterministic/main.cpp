@@ -32,13 +32,13 @@
 #include <math.h>
 #include <cstdio>
 #include <cstdlib>
-#include "functions.h"
 #include <ctime>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/stat.h>
 
-
+#include "functions.h"
+#include "io_function.h"
 using namespace std;
 
 const int CHUNK_SIZE = 10000; // size of chunk which is read from the input buffer at a time
@@ -66,89 +66,11 @@ int main(int argc, char** argv)
     rates rateValues[CHUNK_SIZE];
 
     // Read the entire input file into a char array buffer to speed up I/O
-    char* buffer;
+    char *buffer;
     int index = 0;
-    if (input_file != NULL) {
-        cout << terminal_blue << "Reading file " << terminal_reset << input_file << " . . . ";
-        readFile(&buffer, input_file);
-        cout << terminal_done << endl;
-    }
+    create_buffer(buffer, input_file);    
 
-    // Create output files
-    ofstream allpassed, oft;
-    
-    int path_length = strlen(output_path); // get the path length and remove the trailing slash from the path if it was given with one
-    if (output_path[path_length - 1] == '/') {
-	output_path[--path_length] = '\0';
-    }
-    
-    cout << terminal_blue << "Creating " << terminal_reset << output_path << " directory if necessary ... ";
-    if (mkdir(output_path, 0755) != 0 && errno != EEXIST) { // make the output directory if necessary or exit the program if there was an error trying to do so
-	cout << terminal_red << "Couldn't create " << output_path << " directory!" << terminal_reset << endl;
-	exit(1);
-    }
-    cout << terminal_done << endl;
-    
-    char output_file[path_length + 30]; // the buffer containing the output file names
-    memcpy(output_file, output_path, path_length);
-    output_file[path_length] = '/';
-    memcpy(output_file + path_length + 1, "det-passed.csv" , 14);
-    
-    try {
-        cout << terminal_blue << "Creating output file " << terminal_reset << output_file << " . . . ";
-        allpassed.open(output_file, fstream::out);
-    } catch (ofstream::failure) {
-        cout << terminal_red << "Couldn't create " << output_file << "!" << " Exit status 1." << terminal_reset << endl;
-        exit(1);
-    }
-    cout << terminal_done << endl;
-
-    string mutants[6] = {"/wt", "/delta", "/her13", "/her1", "/her7", "/her713"};
-    if (toPrint) {
-        for (int mut = 0; mut < 6; mut++) {
-            strcpy(output_file, output_path);
-            strcat(output_file, mutants[mut].c_str());
-            
-            string mutant;
-	    ostringstream convert;
-	    convert << output_file;
-	    mutant = convert.str();
-            mutants[mut] = mutant;
-            
-            cout << terminal_blue << "Creating " << terminal_reset << output_file << " directory if necessary ... ";
-            if (mkdir(output_file, 0755) != 0 && errno != EEXIST) { // make the output directory if necessary or exit the program if there was an error trying to do so
-                cout << terminal_red << "Couldn't create " << output_file << " directory!" << terminal_reset << endl;
-                exit(1);
-            }
-            cout << terminal_done << endl;
-        }
-    }
-    
-    if (ofeat) {
-        try {
-            cout << terminal_blue << "Creating oscillation features file " << terminal_reset << ofeat_file << " . . . " << endl;
-            oft.open(ofeat_file, fstream::out);
-            oft<<"set,wt,period,amplitude,peaktotrough,delta,period,amplitude,peaktotrough,her1,period,amplitude,peaktotrough,her7,period,amplitude,peaktotrough,her13,period,amplitude,peaktotrough,her713,period,amplitude,peaktotrough" << endl;
-	    cout << terminal_done << endl;
-        } catch (ofstream::failure) {
-            cout << terminal_red << "Couldn't create " << ofeat_file << "!" << " Exit status 1." << terminal_reset << endl;
-            exit(1);
-        }
-    }
-
-    
-    if (ofeat) {
-        try {
-            cout << terminal_blue << "Creating oscillation features file " << terminal_reset << ofeat_file << " . . . " << endl;
-            oft.open(ofeat_file, fstream::out);
-            oft << "set,per wt,amp wt,peak to trough wt,per delta,amp delta,peak to trough delta,per her1,amp her1,peak to trough her1,per her7,amp her7,peak to trough her7,per her13,amp her13,peak to trough her13,per her713,amp her713,peak to trough her713" << endl;
-	    cout << terminal_done << endl;        
-	} catch (ofstream::failure) {
-            cout << terminal_red << "Couldn't create " << ofeat_file << "!" << " Exit status 1." << terminal_reset << endl;
-            exit(1);
-        }
-    }
-
+    create_output(output_path, toPrint, ofeat);
     // Iterate through every paramater set
     for (int p = 0; p < PARS; p += CHUNK_SIZE) {
         if (toPrint) {

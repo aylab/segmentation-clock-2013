@@ -282,51 +282,6 @@ bool checkPropensities(glevels *x, rates pars, int sn, double CUTOFF) {
     return true;
 }
 
-void readFile(char **buffer, char* input_file)
-{
-    /*
-     Reads the specified input file into a char* buffer.
-     */
-    
-    // open file for reading and print header
-    FILE *pFile;
-    long lSize;
-    size_t result;
-    static const int MB = 1048576;
-	
-    pFile = fopen(input_file, "rb");
-    if (pFile == NULL) {
-	cerr << terminal_red << "Couldn't open file " << input_file << "! Exit status 1." << terminal_reset << endl;
-        exit(1);
-    }
-	
-    // obtain file size and check that it is under 400MB
-    fseek(pFile, 0, SEEK_END);
-    lSize = ftell(pFile);
-    if (lSize > 400 * MB) {
-        cerr << terminal_red << "Input file is too large (400MB limit)! Exit status 1." << terminal_reset;
-        exit(1);
-    }    
-    rewind(pFile);
-	
-    //allocate memory to contain the whole file:
-    *buffer = (char*) malloc (sizeof(char)*lSize);
-    if (*buffer == NULL) {
-	cerr << terminal_no_memory << " Exit status 2." << endl;
-        exit(2);
-    }
-	
-    //copy the file into the buffer:
-    result = fread(*buffer, 1, lSize, pFile);
-    if ((int)result != lSize) {
-	cerr << terminal_red << "Reading error. Exit status 3." << terminal_reset << endl;
-        exit(3);
-    }
-	
-    //the whole file is now loaded in the memory buffer
-    fclose (pFile);
-}
-
 void parseLine(char* buffer, double items[], int &index)
 {
     /*
@@ -730,48 +685,45 @@ void ofeatures(glevels *g, double eps, int nfinal, bool wild, data &d) {
      For the wild type, the peak and trough at the middle of the graph are also calculated
      in order to ensure that the oscillations are sustained.
      */
-	double tmaxlast = 0, tmaxpenult = 0, mmaxlast = 0, mmaxpenult = 0;
-	double tminlast = 0, tminpenult = 0, mminlast = 0, mminpenult = 0;
+    double tmaxlast = 0, tmaxpenult = 0, mmaxlast = 0, mmaxpenult = 0;
+    double tminlast = 0, tminpenult = 0, mminlast = 0, mminpenult = 0;
 		
-	for (int n = 1; n < nfinal - 1; n++) {
+    for (int n = 1; n < nfinal - 1; n++) {
         // check if the current point is a peak
-		if (g -> mh1[0][n + 1] < g -> mh1[0][n] && g -> mh1[0][n] > g -> mh1[0][n - 1]) {
-			tmaxpenult = tmaxlast;
-			tmaxlast = n*eps;
-			mmaxpenult = mmaxlast;
-			mmaxlast = g -> mh1[0][n];
-		}
+	if (g -> mh1[0][n + 1] < g -> mh1[0][n] && g -> mh1[0][n] > g -> mh1[0][n - 1]) {
+	    tmaxpenult = tmaxlast;
+	    tmaxlast = n*eps;
+	    mmaxpenult = mmaxlast;
+	    mmaxlast = g -> mh1[0][n];
+	}
 		
         // check if the current point is a trough
-		if (g -> mh1[0][n + 1] > g -> mh1[0][n] && g -> mh1[0][n] < g -> mh1[0][n - 1]){
-			tminpenult = tminlast;
-			tminlast = n * eps;
-			mminpenult = mminlast;
-			mminlast = g -> mh1[0][n];
-		}
+	if (g -> mh1[0][n + 1] > g -> mh1[0][n] && g -> mh1[0][n] < g -> mh1[0][n - 1]){
+	    tminpenult = tminlast;
+            tminlast = n * eps;
+	    mminpenult = mminlast;
+	    mminlast = g -> mh1[0][n];
 	}
+    }
 	
-	if (wild) {
+    if (wild) {
         // calculate the peak and trough at the middle of the graph
-		double mmaxlast2 = 0.0, mminlast2 = 0.0;
-		for(int m = 2; m < nfinal/2; m++){
-			if(g -> mh1[0][m + 1] < g -> mh1[0][m] && g -> mh1[0][m] > g -> mh1[0][m - 1])
-			{
-				mmaxlast2 = g -> mh1[0][m];
-			}
-			if(g -> mh1[0][m + 1] > g -> mh1[0][m] && g -> mh1[0][m] < g -> mh1[0][m - 1])
-			{
-				mminlast2 = g -> mh1[0][m];
-			}
-		}
+	double mmaxlast2 = 0.0, mminlast2 = 0.0;
+	for(int m = 2; m < nfinal/2; m++){
+	    if(g -> mh1[0][m + 1] < g -> mh1[0][m] && g -> mh1[0][m] > g -> mh1[0][m - 1]){
+	        mmaxlast2 = g -> mh1[0][m];
+	    }
+	    if(g -> mh1[0][m + 1] > g -> mh1[0][m] && g -> mh1[0][m] < g -> mh1[0][m - 1]){
+	        mminlast2 = g -> mh1[0][m];
+	    }
 		
         // in order to avoid dividing by zero in case a trough is 0, set it to 1
-		if(mminlast2 == 0.0 || mminlast == 0.0) {
-			mminlast2 = 1.0;
-            mminlast = 1.0;
-		}
-		d.peaktotrough2 = mmaxlast2/mminlast2;
-    }
+	    if(mminlast2 == 0.0 || mminlast == 0.0) {
+		mminlast2 = 1.0;
+                mminlast = 1.0;
+	    }
+	    d.peaktotrough2 = mmaxlast2/mminlast2;
+        }
 	
 	d.period = tmaxlast-tmaxpenult;
 	d.amplitude = mmaxlast-mminlast;

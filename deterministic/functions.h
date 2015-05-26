@@ -101,7 +101,6 @@ struct data{
     bool w;
 };
 
-void checkArgs(int, char**, char**, char**, char**, bool&, int&, int&, int&, double&, double&, bool&, int&, int&);
 bool checkPropensities(glevels*, rates, int, double);
 void printForPlotting(string, glevels*, int, double);
 void test_print(rates);
@@ -109,7 +108,6 @@ void store_values(char*, char*, int&, rates*, const int, int);
 void clear_levels(glevels*, int, int);
 bool model(double, int, glevels*, rates, double);
 void ofeatures(glevels*, double, int, bool, data&);
-void readFile(char**, char*);
 void parseLine(char*, int[], int&);
 void skipFirstLine(char*, int&);
 void usage(const char*);
@@ -121,7 +119,7 @@ inline void clear_data(data &d){
     d.amplitude = 0.0;
     d.peaktotrough1 = 0.0;
     d.peaktotrough2 = 0.0;
-	d.w = false;
+    d.w = false;
 }
 
 /*

@@ -1,0 +1,119 @@
+/*
+ Deterministic simulator for the zebrafish segmentation clock.
+ Copyright (C) 2012 Ahmet Ay, Jack Holland, Adriana Sperlea
+ 
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+ 
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ 
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+/*
+ The program simulates the behavior of the zebrafish segmentation clock for two cells,
+ through a matematical model using delay differential equations.
+ To solve the equations, the program uses Euler's method, with an adjustable stepsize.
+ The program tries to find parameter sets which replicate the behavior of the system in wild type
+ and several mutants.
+ */
+
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
+#include <string.h>
+#include <math.h>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <stdlib.h>
+#include <errno.h>
+#include <sys/stat.h>
+
+void create_directory(char *output_path){
+    cout << terminal_blue << "Creating " << terminal_reset << output_path << " directory if necessary ... ";
+    if (mkdir(output_path, 0755) != 0 && errno != EEXIST) { // make the output directory if necessary or exit the program if there was an error trying to do so
+	cout << terminal_red << "Couldn't create " << output_path << " directory!" << terminal_reset << endl;
+	exit(1);
+    }
+    cout << terminal_done << endl;
+}
+
+void create_file(char output_file){    
+    try {
+        cout << terminal_blue << "Creating output file " << terminal_reset << output_file << " . . . ";
+        allpassed.open(output_file, fstream::out);
+    } catch (ofstream::failure) {
+        cout << terminal_red << "Couldn't create " << output_file << "!" << " Exit status 1." << terminal_reset << endl;
+        exit(1);
+    }
+    cout << terminal_done << endl;
+}
+
+void create_mutant_dir(char output_file){
+    string mutants[6] = {"/wt", "/delta", "/her13", "/her1", "/her7", "/her713"};
+    for (int mut = 0; mut < 6; mut++) {
+        strcpy(output_file, output_path);
+        strcat(output_file, mutants[mut].c_str());
+            
+        string mutant;
+	ostringstream convert;
+	convert << output_file;
+	mutant = convert.str();
+        mutants[mut] = mutant;
+           
+        cout << terminal_blue << "Creating " << terminal_reset << output_file << " directory if necessary ... ";
+        if (mkdir(output_file, 0755) != 0 && errno != EEXIST) { // make the output directory if necessary or exit the program if there was an error trying to do so
+            cout << terminal_red << "Couldn't create " << output_file << " directory!" << terminal_reset << endl;
+            exit(1);
+        }
+        cout << terminal_done << endl;
+    }
+}
+
+void create_ofeat(char *str){
+    try {
+        cout << terminal_blue << "Creating oscillation features file " << terminal_reset << ofeat_file << " . . . " << endl;
+        oft.open(ofeat_file, fstream::out);
+        oft<< str << endl;
+        cout << terminal_done << endl;
+    } catch (ofstream::failure) {
+        cout << terminal_red << "Couldn't create " << ofeat_file << "!" << " Exit status 1." << terminal_reset << endl;
+        exit(1);
+    }
+}
+
+void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_file){
+    // Create output files
+    ofstream allpassed, oft;
+    
+    int path_length = strlen(output_path); // get the path length and remove the trailing slash from the path if it was given with one
+    if (output_path[path_length - 1] == '/') {
+	output_path[--path_length] = '\0';
+    }
+
+    create_directory(output_path);    
+
+    char output_file[path_length + 30]; // the buffer containing the output file names
+    memcpy(output_file, output_path, path_length);
+    output_file[path_length] = '/';
+    memcpy(output_file + path_length + 1, "det-passed.csv" , 14);   
+
+    create_file(output_file);
+    
+    if (toPrint) {
+        create_mutant_dir(output_file);
+    }
+    
+    if (ofeat) {
+        create_ofeat("set,wt,period,amplitude,peaktotrough,delta,period,amplitude,peaktotrough,her1,period,amplitude,peaktotrough,her7,period,amplitude,peaktotrough,her13,period,amplitude,peaktotrough,her713,period,amplitude,peaktotrough");
+        create_ofeat("set,per wt,amp wt,peak to trough wt,per delta,amp delta,peak to trough delta,per her1,amp her1,peak to trough her1,per her7,amp her7,peak to trough her7,per her13,amp her13,peak to trough her13,per her713,amp her713,peak to trough her713");
+    }
+}
