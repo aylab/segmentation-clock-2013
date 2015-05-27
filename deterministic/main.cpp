@@ -68,42 +68,39 @@ int main(int argc, char** argv)
     // Read the entire input file into a char array buffer to speed up I/O
     char *buffer;
     int index = 0;
-    create_buffer(buffer, input_file);    
+    create_buffer(buffer, input_file);  
 
-    create_output(output_path, toPrint, ofeat);
+
+    //Create output files
+    ofstream allpassed, oft;
+    create_output(output_path, toPrint, ofeat, ofeat_file, &allpassed, &oft);
+
+
     // Iterate through every paramater set
     for (int p = 0; p < PARS; p += CHUNK_SIZE) {
-        if (toPrint) {
-            cout << terminal_blue << "Creating " << terminal_reset << output_path << " directory if necessary ... ";
-            if (mkdir(output_path, 0755) != 0 && errno != EEXIST) { // make the output directory if necessary or exit the program if there was an error trying to do so
-                cout << terminal_red << "Couldn't create " << output_path << " directory!" << terminal_reset << endl;
-                exit(1);
-            }
-            cout << terminal_done << endl;
-        }
         int STEP = (PARS - p > CHUNK_SIZE ? CHUNK_SIZE : PARS - p);
         srand(seed);
         store_values(input_file, buffer, index, rateValues, STEP, seed); // Read the parameter sets from the buffer
         glevels gene(minutes / eps, x * y); // Create the structure that contains the 2D arrays which hold the gene levels
-	for (int i = 0; i < STEP; i++) {
+		for (int i = 0; i < STEP; i++) {
             string res;
-	    ostringstream convert;
-	    convert << i;
-	    res = convert.str();
+	    	ostringstream convert;
+	    	convert << i;
+	    	res = convert.str();
             cerr << "Simulating set " << p + i << endl; // Used for creating output file names specific to the paramater
-	    int t_steps = int(minutes / eps); // Set the amount of time steps to be used in the simulation
+	    	int t_steps = int(minutes / eps); // Set the amount of time steps to be used in the simulation
 		 
-	    rates temp_rate = rateValues[i]; // Temporary rate structure used to alter the protein synthesis rates in order to create mutants
-	    data of_wt, of_her1, of_her7, of_her13, of_her713, of_delta; // Data structures for storing oscillation features
-	    bool wt = false, her1 = false, her7 = false, her13 = false, her713 = false, delta = false;  // Booleans to see if we met mutant conditions on each iteration
+	    	rates temp_rate = rateValues[i]; // Temporary rate structure used to alter the protein synthesis rates in order to create mutants
+	    	data of_wt, of_her1, of_her7, of_her13, of_her713, of_delta; // Data structures for storing oscillation features
+	    	bool wt = false, her1 = false, her7 = false, her13 = false, her713 = false, delta = false;  // Booleans to see if we met mutant conditions on each iteration
 		 
-	    // Clear data from previous iterations
-	    clear_data(of_wt);
-	    clear_data(of_her1);
-	    clear_data(of_her7);
-	    clear_data(of_her13);
-	    clear_data(of_her713);
-	    clear_data(of_delta);
+	    	// Clear data from previous iterations
+	    	clear_data(of_wt);
+	    	clear_data(of_her1);
+	    	clear_data(of_her7);
+	    	clear_data(of_her13);
+	    	clear_data(of_her713);
+	    	clear_data(of_delta);
 			
             /* 
              For the wild type and every mutant, perform the following steps:
@@ -117,7 +114,7 @@ int main(int argc, char** argv)
             if (toPrint) {
                 printForPlotting(mutants[0] + "/run0.txt", &gene, t_steps, eps);
             }
-	    if (!wt) continue; 
+	    	if (!wt) continue; 
             wt = fwildtype(of_wt.peaktotrough1, of_wt.peaktotrough2); 
             if (!wt) continue; 
 
@@ -126,7 +123,7 @@ int main(int argc, char** argv)
             if (toPrint) {
                 printForPlotting(mutants[1] + "/run0.txt", &gene, t_steps, eps);
             }
-	    if (!delta) continue; 
+	    	if (!delta) continue; 
             delta = fd_mutant(of_delta.period, of_delta.amplitude, of_wt.period); 
             if (!delta) continue; 
             temp_rate.psd = rateValues[i].psd; 
@@ -136,7 +133,7 @@ int main(int argc, char** argv)
             if (toPrint) {
                 printForPlotting(mutants[2] + "/run0.txt", &gene, t_steps, eps);
             }
-	    if (!her13) continue; 
+	    	if (!her13) continue; 
             her13 = f13_mutant(of_her13.period, of_her13.amplitude, of_wt.period);
             if (!her13) continue; 
             temp_rate.psh13 = rateValues[i].psh13; 
@@ -146,7 +143,7 @@ int main(int argc, char** argv)
             if (toPrint) {
                 printForPlotting(mutants[3] + "/run0.txt", &gene, t_steps, eps);
             }
-	    if (!her1) continue;
+	    	if (!her1) continue;
             her1 = f1_mutant(of_her1.period, of_her1.amplitude, of_wt.period);
             if (!her1) continue;
             temp_rate.psh1 = rateValues[i].psh1;
@@ -166,7 +163,7 @@ int main(int argc, char** argv)
             if (toPrint) {
                 printForPlotting(mutants[5] + "/run0.txt", &gene, t_steps, eps);
             }
-	    if (!her713) continue;
+	    	if (!her713) continue;
             her713 = f713_mutant(of_her713.period, of_her713.amplitude, of_wt.period);
             if (!her713) continue;
             temp_rate.psh7 = rateValues[i].psh7;
@@ -190,13 +187,13 @@ int main(int argc, char** argv)
             }
             
             allpassed<<temp_rate.psh1<<","<<temp_rate.psh7<<","<<temp_rate.psh13<<","<<temp_rate.psd<<","<<temp_rate.pdh1<<","<<temp_rate.pdh7<<",";
-	    allpassed<<temp_rate.pdh13<<","<<temp_rate.pdd<<","<<temp_rate.msh1<<","<<temp_rate.msh7<<","<<temp_rate.msh13<<","<<temp_rate.msd<<",";
-	    allpassed<<temp_rate.mdh1<<","<<temp_rate.mdh7<<","<<temp_rate.mdh13<<","<<temp_rate.mdd<<"," <<temp_rate.ddgh1h1 << "," << temp_rate.ddgh1h7 << ",";
-	    allpassed<<temp_rate.ddgh1h13<<","<<temp_rate.ddgh7h7<<","<<temp_rate.ddgh7h13<<","<<temp_rate.ddgh13h13<<",";
-	    allpassed<<temp_rate.delaymh1<<","<<temp_rate.delaymh7<<","<<temp_rate.delaymh13<<","<<temp_rate.delaymd<<","<<temp_rate.delayph1<<",";
-	    allpassed<<temp_rate.delayph7<<","<<temp_rate.delayph13<<","<<temp_rate.delaypd<<","<<temp_rate.dah1h1<<","<<temp_rate.ddh1h1<<","<<temp_rate.dah1h7<<",";
-	    allpassed<<temp_rate.ddh1h7<<","<<temp_rate.dah1h13<<","<<temp_rate.ddh1h13<<","<<temp_rate.dah7h7<<","<<temp_rate.ddh7h7<<","<<temp_rate.dah7h13<<",";
-	    allpassed<<temp_rate.ddh7h13<<","<<temp_rate.dah13h13<<","<<temp_rate.ddh13h13<<","<<temp_rate.critph1h1 << "," << temp_rate.critph7h13 <<","<<temp_rate.critpd<<endl;
+	    	allpassed<<temp_rate.pdh13<<","<<temp_rate.pdd<<","<<temp_rate.msh1<<","<<temp_rate.msh7<<","<<temp_rate.msh13<<","<<temp_rate.msd<<",";
+	    	allpassed<<temp_rate.mdh1<<","<<temp_rate.mdh7<<","<<temp_rate.mdh13<<","<<temp_rate.mdd<<"," <<temp_rate.ddgh1h1 << "," << temp_rate.ddgh1h7 << ",";
+	    	allpassed<<temp_rate.ddgh1h13<<","<<temp_rate.ddgh7h7<<","<<temp_rate.ddgh7h13<<","<<temp_rate.ddgh13h13<<",";
+	    	allpassed<<temp_rate.delaymh1<<","<<temp_rate.delaymh7<<","<<temp_rate.delaymh13<<","<<temp_rate.delaymd<<","<<temp_rate.delayph1<<",";
+	    	allpassed<<temp_rate.delayph7<<","<<temp_rate.delayph13<<","<<temp_rate.delaypd<<","<<temp_rate.dah1h1<<","<<temp_rate.ddh1h1<<","<<temp_rate.dah1h7<<",";
+	    	allpassed<<temp_rate.ddh1h7<<","<<temp_rate.dah1h13<<","<<temp_rate.ddh1h13<<","<<temp_rate.dah7h7<<","<<temp_rate.ddh7h7<<","<<temp_rate.dah7h13<<",";
+	    	allpassed<<temp_rate.ddh7h13<<","<<temp_rate.dah13h13<<","<<temp_rate.ddh13h13<<","<<temp_rate.critph1h1 << "," << temp_rate.critph7h13 <<","<<temp_rate.critpd<<endl;
 	    }
         
         cerr << terminal_blue << "Done with " << terminal_reset << STEP << " parameter sets." << endl;

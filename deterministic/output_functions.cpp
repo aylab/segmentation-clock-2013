@@ -135,9 +135,7 @@ void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_name
     }
     
     if (ofeat) {
-        char ofeat1[] = "set,wt,period,amplitude,peaktotrough,delta,period,amplitude,peaktotrough,her1,period,amplitude,peaktotrough,her7,period,amplitude,peaktotrough,her13,period,amplitude,peaktotrough,her713,period,amplitude,peaktotrough"; 
-        char ofeat2[] = "set,per wt,amp wt,peak to trough wt,per delta,amp delta,peak to trough delta,per her1,amp her1,peak to trough her1,per her7,amp her7,peak to trough her7,per her13,amp her13,peak to trough her13,per her713,amp her713,peak to trough her713";
-        create_ofeat(ofeat1, ofeat_file, oft);
-        create_ofeat(ofeat2, ofeat_file, oft);
+        char ofeat[] = "set,per wt,amp wt,peak to trough wt,per delta,amp delta,peak to trough delta,per her1,amp her1,peak to trough her1,per her7,amp her7,peak to trough her7,per her13,amp her13,peak to trough her13,per her713,amp her713,peak to trough her713";
+        create_ofeat(ofeat, ofeat_file, oft);
     }
 }
