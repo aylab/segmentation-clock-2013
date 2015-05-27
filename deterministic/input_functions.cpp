@@ -25,11 +25,15 @@
 #include <cstring>
 #include <math.h>
 
+#include "input_functions.h"
 #include "functions.h"
-#include "io_functions.h"
-
 
 using namespace std;
+
+// global variables
+char* terminal_blue;
+char* terminal_red;
+char* terminal_reset;
 
 void readFile(char **buffer, char* input_file)
 {
@@ -42,13 +46,13 @@ void readFile(char **buffer, char* input_file)
     size_t result;
     static const int MB = 1048576;
 
-    // open file for reading and print header	
+    // open file for reading and print header   
     pFile = fopen(input_file, "rb");
     if (pFile == NULL) {
-	cerr << terminal_red << "Couldn't open file " << input_file << "! Exit status 1." << terminal_reset << endl;
+        cerr << terminal_red << "Couldn't open file " << input_file << "! Exit status 1." << terminal_reset << endl;
         exit(1);
     }
-	
+    
     // obtain file size and check that it is under 400MB
     fseek(pFile, 0, SEEK_END);
     lSize = ftell(pFile);
@@ -57,21 +61,21 @@ void readFile(char **buffer, char* input_file)
         exit(1);
     }    
     rewind(pFile);
-	
+    
     //allocate memory to contain the whole file:
     *buffer = (char*) malloc (sizeof(char)*lSize);
     if (*buffer == NULL) {
-	cerr << terminal_no_memory << " Exit status 2." << endl;
+        cerr << terminal_no_memory << " Exit status 2." << endl;
         exit(2);
     }
-	
+    
     //copy the file into the buffer:
     result = fread(*buffer, 1, lSize, pFile);
     if ((int)result != lSize) {
-	cerr << terminal_red << "Reading error. Exit status 3." << terminal_reset << endl;
+        cerr << terminal_red << "Reading error. Exit status 3." << terminal_reset << endl;
         exit(3);
     }
-	
+    
     //the whole file is now loaded in the memory buffer
     fclose (pFile);
 }
@@ -94,12 +98,24 @@ void terminal_color(){
     terminal_red = (char*)malloc(sizeof(terminal_red_d));
     terminal_reset = (char*)malloc(sizeof(terminal_reset_d));
     if (terminal_blue == NULL || terminal_red == NULL || terminal_reset == NULL) {
-	cout << terminal_no_memory << endl;
-	exit(1);
+        cout << terminal_no_memory << endl;
+        exit(1);
     }
     strcpy(terminal_blue, terminal_blue_d);
     strcpy(terminal_red, terminal_red_d);
     strcpy(terminal_reset, terminal_reset_d);
+}
+
+void store_filename (char** field, const char* value) {
+    /*
+     Allocates the necessary memory and stores a specified file name.
+     */
+    *field = (char*)malloc(strlen(value) + 1);
+    if (field == 0) {
+        cout << terminal_no_memory << endl;
+        exit(2);
+    }
+    strcpy(*field, value);
 }
 
 void checkArgs(int argc, char** argv, char** input_file, char** output_path, char** ofeat_file, bool& ofeat, int& pars, int& seed, int& minutes, double& eps, double& max_prop, bool& toPrint, int &x, int &y) {
@@ -180,10 +196,10 @@ void checkArgs(int argc, char** argv, char** input_file, char** output_path, cha
                 cout.rdbuf(nullout.rdbuf());
                 i--;
             } else if (strcmp(option, "-h") == 0 || strcmp(option, "--help") == 0) {
-				usage("");
+                usage("");
                 i--;
-	    } else if (strcmp(option, "-l") == 0 || strcmp(option, "--licensing") == 0) { 
-				licensing();
+            } else if (strcmp(option, "-l") == 0 || strcmp(option, "--licensing") == 0) { 
+                licensing();
                 i--;
             }
         }

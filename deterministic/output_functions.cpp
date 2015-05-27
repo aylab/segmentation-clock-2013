@@ -37,19 +37,32 @@
 #include <errno.h>
 #include <sys/stat.h>
 
+#include "output_functions.h"
+#include "functions.h" 
+using namespace std;
+
+// global variables
+extern char* terminal_blue;
+extern char* terminal_red;
+extern char* terminal_reset;
+
 void create_directory(char *output_path){
     cout << terminal_blue << "Creating " << terminal_reset << output_path << " directory if necessary ... ";
-    if (mkdir(output_path, 0755) != 0 && errno != EEXIST) { // make the output directory if necessary or exit the program if there was an error trying to do so
-	cout << terminal_red << "Couldn't create " << output_path << " directory!" << terminal_reset << endl;
-	exit(1);
+    if (mkdir(output_path, 0755) != 0 && errno != EEXIST) { 
+        /* 
+         *  make the output directory if necessary 
+         *  or exit the program if there was an error trying to do so
+        */
+        cout << terminal_red << "Couldn't create " << output_path << " directory!" << terminal_reset << endl;
+        exit(1);
     }
     cout << terminal_done << endl;
 }
 
-void create_file(char output_file){    
+void create_file(char *output_file, ofstream *allpassed){  
     try {
-        cout << terminal_blue << "Creating output file " << terminal_reset << output_file << " . . . ";
-        allpassed.open(output_file, fstream::out);
+        cout << terminal_blue << "Creating output file " << terminal_reset << output_file << " . . . ";        
+        (*allpassed).open(output_file, fstream::out);
     } catch (ofstream::failure) {
         cout << terminal_red << "Couldn't create " << output_file << "!" << " Exit status 1." << terminal_reset << endl;
         exit(1);
@@ -57,32 +70,33 @@ void create_file(char output_file){
     cout << terminal_done << endl;
 }
 
-void create_mutant_dir(char output_file){
+void create_mutant_dir(char *output_path){
     string mutants[6] = {"/wt", "/delta", "/her13", "/her1", "/her7", "/her713"};
+    char output_dir[strlen(output_path)];
     for (int mut = 0; mut < 6; mut++) {
-        strcpy(output_file, output_path);
-        strcat(output_file, mutants[mut].c_str());
+        strcpy(output_dir, output_path);
+        strcat(output_dir, mutants[mut].c_str());
             
         string mutant;
-	ostringstream convert;
-	convert << output_file;
-	mutant = convert.str();
+        ostringstream convert;
+        convert << output_dir;
+        mutant = convert.str();
         mutants[mut] = mutant;
            
-        cout << terminal_blue << "Creating " << terminal_reset << output_file << " directory if necessary ... ";
-        if (mkdir(output_file, 0755) != 0 && errno != EEXIST) { // make the output directory if necessary or exit the program if there was an error trying to do so
-            cout << terminal_red << "Couldn't create " << output_file << " directory!" << terminal_reset << endl;
+        cout << terminal_blue << "Creating " << terminal_reset << output_dir << " directory if necessary ... ";
+        if (mkdir(output_dir, 0755) != 0 && errno != EEXIST) { // make the output directory if necessary or exit the program if there was an error trying to do so
+            cout << terminal_red << "Couldn't create " << output_dir << " directory!" << terminal_reset << endl;
             exit(1);
         }
         cout << terminal_done << endl;
     }
 }
 
-void create_ofeat(char *str){
+void create_ofeat(char *str, char *ofeat_file, ofstream *oft){
     try {
         cout << terminal_blue << "Creating oscillation features file " << terminal_reset << ofeat_file << " . . . " << endl;
-        oft.open(ofeat_file, fstream::out);
-        oft<< str << endl;
+        (*oft).open(ofeat_file, fstream::out);
+        (*oft)<< str << endl;
         cout << terminal_done << endl;
     } catch (ofstream::failure) {
         cout << terminal_red << "Couldn't create " << ofeat_file << "!" << " Exit status 1." << terminal_reset << endl;
@@ -90,30 +104,40 @@ void create_ofeat(char *str){
     }
 }
 
-void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_file){
-    // Create output files
-    ofstream allpassed, oft;
+void create_file_name(char *buff, char *output_path, int path_length, char *file){
+    int file_name_length = strlen(file);
+    memcpy(buff, output_path, path_length);
+    buff[path_length] = '/';
+    memcpy(buff + path_length + 1, file , file_name_length); 
+    buff[path_length + file_name_length + 1] = '\0';
+}
+
+void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_name, ofstream *allpassed, ofstream *oft){
+    // Create output files    
     
     int path_length = strlen(output_path); // get the path length and remove the trailing slash from the path if it was given with one
     if (output_path[path_length - 1] == '/') {
-	output_path[--path_length] = '\0';
+        output_path[--path_length] = '\0';
     }
 
     create_directory(output_path);    
 
     char output_file[path_length + 30]; // the buffer containing the output file names
-    memcpy(output_file, output_path, path_length);
-    output_file[path_length] = '/';
-    memcpy(output_file + path_length + 1, "det-passed.csv" , 14);   
+    char ofeat_file[path_length + 30]; // the buffer containing the ofeat file names
+    char output_name[] = "det-passed.csv";
+    create_file_name(output_file, output_path, path_length, output_name);
+    create_file_name(ofeat_file, output_path, path_length, ofeat_name);      
 
-    create_file(output_file);
+    create_file(output_file, allpassed);
     
     if (toPrint) {
-        create_mutant_dir(output_file);
+        create_mutant_dir(output_path);
     }
     
     if (ofeat) {
-        create_ofeat("set,wt,period,amplitude,peaktotrough,delta,period,amplitude,peaktotrough,her1,period,amplitude,peaktotrough,her7,period,amplitude,peaktotrough,her13,period,amplitude,peaktotrough,her713,period,amplitude,peaktotrough");
-        create_ofeat("set,per wt,amp wt,peak to trough wt,per delta,amp delta,peak to trough delta,per her1,amp her1,peak to trough her1,per her7,amp her7,peak to trough her7,per her13,amp her13,peak to trough her13,per her713,amp her713,peak to trough her713");
+        char ofeat1[] = "set,wt,period,amplitude,peaktotrough,delta,period,amplitude,peaktotrough,her1,period,amplitude,peaktotrough,her7,period,amplitude,peaktotrough,her13,period,amplitude,peaktotrough,her713,period,amplitude,peaktotrough"; 
+        char ofeat2[] = "set,per wt,amp wt,peak to trough wt,per delta,amp delta,peak to trough delta,per her1,amp her1,peak to trough her1,per her7,amp her7,peak to trough her7,per her13,amp her13,peak to trough her13,per her713,amp her713,peak to trough her713";
+        create_ofeat(ofeat1, ofeat_file, oft);
+        create_ofeat(ofeat2, ofeat_file, oft);
     }
 }
