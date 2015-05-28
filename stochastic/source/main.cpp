@@ -42,6 +42,7 @@ We used the following articles and their associated algorithms to construct this
 #include "rand-dist.h"
 #include "rq-node.h"
 #include "updates.h"
+#include "utility.h"
 
 using namespace std;
 
@@ -49,6 +50,7 @@ using namespace std;
 char* terminal_blue;
 char* terminal_red;
 char* terminal_reset;
+
 
 int main (int argc, char** argv) {
 	/*
@@ -115,232 +117,24 @@ int main (int argc, char** argv) {
 	unsigned int seed = time(NULL); // the seed used to generate random numbers (using the same seed will produce the same results each time) (-s or --seed changes this)
 	char* input_file = NULL; // the path and filename containing the simulation parameters (absolute and relative paths work, this defaults to "input.txt") (-i or --input changes this)
 	char* output_path = NULL; // the directory path to print the results to (absolute and relative paths work, this defaults to "output") (-o or --output changes this)
+	char* gradients_file = NULL; // the path and filename containing the gradient (absolute and relative paths work, this defaults to NULL) (-i or --input changes this)
 	unsigned int con_level = 0; // the index of the concentration level to print as output
 	double granularity = 0.1; // the amount of time to skip between each timestep when printing the output file (-g or --granularity changes this)
 	unsigned int print_interval = 1200; // how often (in minutes) the output file should be printed to (this does not change the simulation results, but is useful to see progress in very slow simulations) (-p or --print changes this)
 	char* seed_file = NULL; // the filename containing the seed used to generate random numbers (relative to the output path, this defaults to "seed.txt") (-k --keepseed changes this)
 	bool appx = false; // if this is set to true then the simulation will use approximation algorithms to create faster but potentially less accurate results (-a or --algorithm followed by "exact" or "appx" changes this)
 	
-	// allocate memory for the terminal color code strings
-	terminal_blue = (char*)malloc(sizeof(terminal_blue_d));
-	terminal_red = (char*)malloc(sizeof(terminal_red_d));
-	terminal_reset = (char*)malloc(sizeof(terminal_reset_d));
-	if (terminal_blue == NULL || terminal_red == NULL || terminal_reset == NULL) {
-		cout << terminal_no_memory << endl;
-		exit(1);
-	}
-	strcpy(terminal_blue, terminal_blue_d);
-	strcpy(terminal_red, terminal_red_d);
-	strcpy(terminal_reset, terminal_reset_d);
-	
-	if (argc > 1) { // if arguments were given
-		for (int i = 1; i < argc; i += 2) { // iterate through each argument
-			char* option = argv[i];
-			char* value;
-			if (i < argc - 1) {
-				value = argv[i + 1];
-			} else {
-				value = NULL;
-			}
-			
-			/*
-			Check for each possible argument option and overrides the default value for each specified option. If the option isn't recognized or the value given for an option doesn't appear valid then the usage information for the program is printed with an error message and no simulations are run. The code should be fairly self-explanatory with a few exceptions:
-			1) atoi converts a string to an integer, atof converts a string to a floating point number (i.e. rational)
-			2) strings should always be compared using strcmp, not ==, and strcmp returns 0 if the two strings match
-			3) usage(true) prints the usage information with an error message while usage(false) prints it without one
-			*/
-			
-			if (strcmp(option, "-x") == 0 || strcmp(option, "--width") == 0) {
-				xcells = atoi(value);
-				if (xcells < 1) {
-					usage("The tissue width must be at least two cells. Set -x or --width to at least 2.");
-				}
-			} else if (strcmp(option, "-y") == 0 || strcmp(option, "--height") == 0) {
-				ycells = atoi(value);
-				if (ycells < 1) {
-					usage("The tissue height must be at least one cell. Set -y or --height to at least 1.");
-				}
-			} else if (strcmp(option, "-m") == 0 || strcmp(option, "--minutes") == 0) {
-				max_minutes = atoi(value);
-				if (max_minutes < 1) {
-					usage("The simulation must run for at least one minute. Set -m or --minutes to at least 1.");
-				}
-			} else if (strcmp(option, "-t") == 0 || strcmp(option, "--time-steps") == 0) {
-				max_timesteps = atol(value);
-				if (max_timesteps < 1) {
-					usage("The simulation must run for at least one timestep. Set -t or --timesteps to at least 1.");
-				}
-			} else if (strcmp(option, "-r") == 0 || strcmp(option, "--runs") == 0) {
-				runs = atoi(value);
-				if (runs < 1) {
-					usage("The simulation must run at least once. Set -r or --runs to at least 1.");
-				}
-			} else if (strcmp(option, "-s") == 0 || strcmp(option, "--seed") == 0) {
-				seed = atoi(value);
-				if (seed < 1) {
-					usage("The seed to generate random numbers must be a positive integer. Set -s or --seed to at least 1.");
-				}
-			} else if (strcmp(option, "-i") == 0 || strcmp(option, "--input") == 0) {
-				store_filename(&input_file, value);
-			} else if (strcmp(option, "-o") == 0 || strcmp(option, "--output") == 0) {
-				store_filename(&output_path, value);
-			} else if (strcmp(option, "-l") == 0 || strcmp(option, "--con-level") == 0) {
-				con_level = levels[value];
-				if (con_level == 0) {
-					usage("The concentration level to print must be her1, her7, her13, or delta mRNA, Her1, Her7, Her13, or Delta protein, or a dimer between any two proteins (e.g. Her1Her13)");
-				} else {
-					con_level--;
-				}
-			} else if (strcmp(option, "-g") == 0 || strcmp(option, "--granularity") == 0) {
-				granularity = atof(value);
-				if (granularity < 0.0) {
-					usage("The output granularity must be a nonnegative real. Set -g or --granularity to at least 0.0.");
-				}
-			} else if (strcmp(option, "-p") == 0 || strcmp(option, "--print") == 0) {
-				print_interval = atoi(value);
-				if (print_interval < 1) {
-					usage("The simulation cannot print its output more than once a simulation-minute. Set -p or --print to at least 1.");
-				}
-			} else if (strcmp(option, "-k") == 0 || strcmp(option, "--keep-seed") == 0) {
-				store_filename(&seed_file, value);
-			} else if (strcmp(option, "-a") == 0 || strcmp(option, "--approximate") == 0) {
-				appx = true;
-				i--;
-			} else if (strcmp(option, "-c") == 0 || strcmp(option, "--no-color") == 0) {
-				strcpy(terminal_blue, "");
-				strcpy(terminal_red, "");
-				strcpy(terminal_reset, "");
-				i--;
-			} else if (strcmp(option, "-q") == 0 || strcmp(option, "--quiet") == 0) {
-				ofstream nullout("/dev/null");
-				cout.rdbuf(nullout.rdbuf());
-				i--;
-			} else if (strcmp(option, "-h") == 0 || strcmp(option, "--help") == 0) {
-				usage("");
-				i--;
-			} else if (strcmp(option, "-l") == 0 || strcmp(option, "--licensing") == 0) {
-				licensing();
-				i--;
-			} else {
-				const char* temp_message = " is not a valid option.";
-				char message[strlen(option) + strlen(temp_message) + 1];
-				strcat(message, option);
-				strcat(message, temp_message);
-				usage(message);
-			}
-		}
-	}
-	
-	/*
-	Check if the tissue size is valid:
-	1) If it's a horizontal chain then it must be a minimum of 3x1
-	2) If it's a hexagonal tissue grid then it must be a minimum of 4x4 and always even by even, not odd by even or even by odd
-	3) If the tissue size isn't valid then print the usage information and don't run any simulations
-	*/
-	
-	if ((ycells == 1 && xcells < 2) || (ycells == 2 || ycells == 3) || (ycells > 3 && (xcells < 4 || ycells % 2 == 1 || xcells % 2 == 1))) {
-		usage("Invalid tissue size. For two cell systems, x=2, y=1. For chains, x>=3, y=1. For tissues, x>=4 and even, y>=4 and even.");
-	}
-	
-    if (input_file == NULL) { // if the input file wasn't given by command-line then initialize it to "input.txt"
-        store_filename(&input_file, "input.txt");
-    }
-    if (output_path == NULL) { // if the output directory path wasn't given then initialize it to "output"
-        store_filename(&output_path, "output");
-    }
+	terminal_color();
+
+	checkArgs(argc, argv, xcells, ycells, max_minutes, max_timesteps, runs, seed, &input_file, &output_path, con_level, levels, granularity, print_interval, &seed_file, appx);
 	
 	unsigned int cells = xcells * ycells; // the total number of cells
 	int structure; // two-cell, chain, or tissue
 	int neighbors; // the number of neighbors each cell has
-	if (ycells == 1) {
-		if (xcells == 2) {
-			structure = structure_twocell;
-			neighbors = neighbors_for_twocell; // if there are only two cells then they are neighbors of each other, so they have two neighbors including themselves
-		} else {
-			structure = structure_chain;
-			neighbors = neighbors_for_chain; // if the cells are in a chain then they have 3 neighbors including themselves
-		}
-	} else {
-		structure = structure_tissue;
-		neighbors = neighbors_for_tissue; // if the cells are in a tissue then they have 7 neighbors including themselves
-	}
-	
-	/*
-	Pre-compute the neighbors for each cell. In two-cell systems, both cells are neighbors of each other. Chains wrap horizontally and hexagonal tissue grids wrap horizontally and vertically like a honeycomb.
-	
-										 ___  ___
-	Two-cell systems look like this:	/   \/   \				where 1 and 2 are neighbors of each other
-										| 1 || 2 |
-										\___/\___/
-	
-										 ___  ___  ___  ___
-	Chains of cells look like this:		/   \/   \/   \/   \	where x has neighbors n
-										| n || x || n ||   |
-										\___/\___/\___/\___/
-	
-										 ___  ___  ___  ___
-	Tissues of cells look like this:	/   \/   \/   \/   \	where x has neighbors n
-										|   || n || n ||   |
-										\___/\___/\___/\___/_
-										  /   \/   \/   \/   \
-										  | n || x || n ||   |
-										  \___/\___/\___/\___/
-										/   \/   \/   \/   \
-										|   || n || n ||   |
-										\___/\___/\___/\___/
-										  /   \/   \/   \/   \
-										  |   ||   ||   ||   |
-										  \___/\___/\___/\___/
-	*/
+	checkSize(xcells, ycells, input_file, output_path, structure, neighbors);
 	
 	int nc[cells][neighbors];
-	if (structure == structure_twocell) { // for two-cell systems
-		for (unsigned int i = 0; i < cells; i++) {
-			nc[i][0] = i;
-			nc[i][1] = 1 - i;
-		}
-	} else if (structure == structure_chain) { // for chains
-		for (unsigned int i = 0; i < cells; i++) {
-			nc[i][0] = i;
-			unsigned int end = xcells - 1;
-			if (i == 0) {
-				nc[i][1] = end;
-				nc[i][2] = 1;
-			} else if (i == end) {
-				nc[i][1] = end - 1;
-				nc[i][2] = 0;
-			} else {
-				nc[i][1] = i - 1;
-				nc[i][2] = i + 1;
-			}
-		}
-	} else { // for tissues
-		for (unsigned int i = 0; i < cells; i++) {
-			nc[i][0] = i;
-			unsigned int not_fc = xcells * (i == 0);
-			unsigned int not_lc = xcells * (i == xcells - 1);
-			if ((i / xcells) % 2 == 0) {
-				nc[i][1] = i - xcells + not_fc - 1;
-				nc[i][2] = i - xcells;
-				nc[i][3] = i + not_fc - 1;
-				nc[i][4] = i + not_lc + 1;
-				nc[i][5] = i + xcells + not_fc - 1;
-				nc[i][6] = i + xcells;
-			} else {
-				nc[i][1] = i - xcells;
-				nc[i][2] = i + not_fc - 1;
-				nc[i][3] = i + not_lc + 1;
-				nc[i][4] = i + xcells + not_fc - 1;
-				nc[i][5] = i + xcells;
-				nc[i][6] = i + xcells + not_lc + 1;
-			}
-			if (i <= xcells || cells - i <= xcells) {
-				for (int j = 1; j < 7; j++) {
-					nc[i][j] = (nc[i][j] + cells) % cells;
-				}
-			}
-		}
-	}
+	cells_neighbors(structure, neighbors, cells, xcells, &nc);
 	
 	/*
 	Initialize the seed used to generate random numbers:
@@ -359,7 +153,9 @@ int main (int argc, char** argv) {
 	/*
 	File input:
 	1) Read the input file
-	2) Parse the first line of the file (mechanisms to parse more are available, but not used, since our system uses a bash script to split parameter files into single lines so a cluster list system can assign different parameter sets to different processors with more control/granularity)
+	2) Parse the first line of the file (mechanisms to parse more are available, but not used, 
+	   since our system uses a bash script to split parameter files into single lines 
+	   so a cluster list system can assign different parameter sets to different processors with more control/granularity)
 	3) Store each comma-separated value in the globally-used parameter struct
 	4) Create an array of delay times, each index corresponding to each delayed reaction
 	*/
@@ -416,34 +212,13 @@ int main (int argc, char** argv) {
 			exit(1);
 		}
 		cout << terminal_done << endl;
-	}
-	
-	/*
-	Allocate memory:
-	1) Indicate to the user how much memory is initially allocated (more will be allocated later when delayed reactions must be added to lists)
-	2) Establish a chunk size proportional to the maximum number of simulation minutes divided by the output granularity (+ 1 for wrapping purposes)
-		Each element in the chunk stores the concentrations for a discrete timestep that will eventually be printed. By storing many concentration snapshots (specifically, the maximum number required for one run), printing can be done either at the end or at various intervals (depending on the printing interval command-line argument). This way the program is not slowed down by repeated printing every timestep.
-	3) Allocate memory for the concentrations matrix and the simulation timestep array
-	*/
+	}	
 	
 	int chunk = max_minutes / granularity + 1;
-	cout << terminal_blue << "Allocating memory " << terminal_reset << "(" << (chunk * (cells * species * sizeof(int) + sizeof(double))) / MB << " MB) ... ";
-	cout.flush();
 	int** x; // concentrations
 	double* T; // timesteps
-	try {
-		x = new int*[chunk]; // create an array of size chunk that will contain enough entries for at least a whole run (it may not be fully utilized by one run if timesteps jump quickly enough)
-		for (int i = 0; i < chunk; i++) {
-			x[i] = new int[cells * species]; // the cells x species concentrations matrix is represented as a flat array, where each cell gets an element for each species, followed by the next cell's species elements
-		}
+	memory_alloc(chunk, cells, &x, &T);
 
-		T = new double[chunk];
-	} catch (bad_alloc) { // if there isn't enough memory to allocate the structures then exit the program
-		cout << terminal_no_memory << endl;
-		exit(1);
-	}
-	cout << terminal_done << endl;
-	
 	/*
 	Run the simulations:
 	1) For every run (by default 1, but can be changed with -r or --runs), do the following:
@@ -478,7 +253,9 @@ int main (int argc, char** argv) {
 		// create an array of lists to store the delayed reactions
 		list<double> rq[cells][num_of_delayed_reactions]; // used for next-reaction-method and id-leaping
 		list<rq_node> rq_idl[cells][num_of_delayed_reactions]; // used just for id-leaping
-		// create Tk and Pk arrays, used to calculate delta for the next-reaction-method (Tk = current internal time of reaction k, Pk = first internal time after Tk at which reaction k fires)
+		/* create Tk and Pk arrays, used to calculate delta for the next-reaction-method 
+		   (Tk = current internal time of reaction k, Pk = first internal time after Tk at which reaction k fires)
+		*/
 		double Tk[cells][reactions];
 		double Pk[cells][reactions];
 		// create the propensity values array and the sum of them, a0
@@ -815,7 +592,11 @@ int main (int argc, char** argv) {
 					}
 				} while (repeat); // repeat if the concentrations would have become negative
 			} else { // if tau-leaping has been temporarily disabled for the sake of efficiency
-				if (skip_steps > 0) { // if tau-leaping should eventually be resumed then decrement the number of times the next-reaction-method should be run before doing so
+				if (skip_steps > 0) { 
+					/* 
+					   if tau-leaping should eventually be resumed 
+					   then decrement the number of times the next-reaction-method should be run before doing so
+					*/
 					skip_steps--;
 				}
 				
@@ -827,7 +608,8 @@ int main (int argc, char** argv) {
 					b) Find the minimum delay time - current time for each delayed reaction to find delta
 					c) Take delta as the minimum of steps a and b
 				3) Update the simulation timestep
-				4) Update the concentrations for the active reaction and either pop it off its list if it's a finished delayed reaction or add it to the list if it's a new one
+				4) Update the concentrations for the active reaction and 
+				   either pop it off its list if it's a finished delayed reaction or add it to the list if it's a new one
 				5) Update Pk and Tk with the appropriate values
 				*/
 				
@@ -835,12 +617,14 @@ int main (int argc, char** argv) {
 				if (cell_index != -1) { // if there is a reaction to update the propensities with
 					int* cnc = nc[cell_index]; // get the cell's neighbors
 					int maxcell;
-					if ((is_delayed && reaction_index == 24) || reaction_index == 25) { // reactions 24 and 25 require each of the cell's neighbors to update as well
+					if ((is_delayed && reaction_index == 24) || reaction_index == 25) { 
+					    // reactions 24 and 25 require each of the cell's neighbors to update as well
 						maxcell = neighbors;
 					} else {
 						maxcell = 1;
 					}
-					for (int cn = 0; cn < maxcell; cn++) { // for every cell that should update (usually just the active cell but see above about reactions 24 and 25)
+					for (int cn = 0; cn < maxcell; cn++) { 
+					    // for every cell that should update (usually just the active cell but see above about reactions 24 and 25)
 						double* acell = a[cnc[cn]]; // the cell index for the propensities array
 						int xcell = cnc[cn] * species; // the cell index for the concentrations array
 						bool enter = true; // update the propensities for all non-delayed reactions and delayed reactions that are finishing, not starting
@@ -986,18 +770,27 @@ int main (int argc, char** argv) {
 				
 				// update the concentrations and appropriate delayed list if necessary
 				int cell_offset = cell_index * species;
-				if (is_delayed) { // if the current reaction is delayed then update the concentrations according to delayed update values
+				if (is_delayed) { 
+				    // if the current reaction is delayed then update the concentrations according to delayed update values
 					cx[cell_offset + species_update_indices_delayed[dr_index]]++;
 					
 					// remove the current reaction from its delayed list
 					if (!rq[cell_index][dr_index].empty()) {
 						rq[cell_index][dr_index].pop_front();
-						if (appx) { // if tau-leaping is also activated (if -a or --algorithm is set to "appx") then update the firings and span list as well
+						if (appx) { 
+						    /* 
+						       if tau-leaping is also activated (if -a or --algorithm is set to "appx") 
+						       then update the firings and span list as well
+							*/
 							rq_idl[cell_index][dr_index].pop_front();
 						}
 					}
-				} else { // if the current reaction isn't a delayed one finishing then update the concentrations according to non-delayed update values
-					// if the reaction is a delayed one starting then add it to the corresponding delayed reactions list
+				} else { 
+				    /* 
+				       if the current reaction isn't a delayed one finishing 
+				       then update the concentrations according to non-delayed update values
+					   if the reaction is a delayed one starting then add it to the corresponding delayed reactions list
+					*/
 					bool do_update = true;
 					for (int d = 0; d < num_of_delayed_reactions; d++) {
 						if (reaction_index == delayed_reactions[d]) {
@@ -1038,13 +831,16 @@ int main (int argc, char** argv) {
 			
 			/*
 			Print the results:
-			1) If the difference in simulation time exceeds the granularity (0.1 minutes by default, but can be changed with -g or --granularity) then do the following:
+			1) If the difference in simulation time exceeds the granularity 
+			   (0.1 minutes by default, but can be changed with -g or --granularity) then do the following:
 			2) If the sum of the concentrations is negative then something went wrong and the simulation ends prematurely
 			3) Increment the chunk index so the current one can be stored without being overwritten
-			4) If the the final chunk index has been reached or the difference in simulation time warrants printing (60 minutes by default, but can be changed with -p or --print):
+			4) If the the final chunk index has been reached or the difference in simulation time warrants printing 
+			   (60 minutes by default, but can be changed with -p or --print):
 				a) Print every chunk element from 1 to chunk_index
 				b) Reset the chunk index to 1
-				c) Wrap the most recent concentration levels and simulation timestep back to index 1 so they can be considered the previous ones
+				c) Wrap the most recent concentration levels and simulation timestep back to index 1 
+				   so they can be considered the previous ones
 			*/
 			
 			// if the difference in timesteps exceeds the granularity then move to the next index in the chunk
@@ -1105,61 +901,9 @@ int main (int argc, char** argv) {
 		cout.flush();
 	}
 	
-	/*
-	Deallocate heap memory:
-	1) Delete the concentrations matrix and simulation timestep array
-	2) Free the memory used to store the input and output paths
-	*/
-	
-	for (int i = 0; i < chunk; i++) {
-		delete[] x[i];
-	}
-	delete[] x;
-	delete[] T;
-	
-	free(input_file);
-    free(output_path);
-	free(terminal_blue);
-	free(terminal_red);
-	free(terminal_reset);
+	memory_dealloc(x, T, input_file, output_path, chunk);	
 	return 0;
 }
 
-// usage message shown when "-h" or "--help" is given or when an an argument option or option value is invalid
-void usage (const char* message) {
-	bool has_message = strcmp(message, "") != 0;
-	if (has_message) { // if there is an error message to print then print it
-		cout << terminal_red << message << terminal_reset << endl << endl;
-	}
-	cout << "Usage: [-option [value]]... [--option [value]]..." << endl;
-	cout << "-x, --width       : the tissue width (in cells), min=3 for chain, min=4 and even for tissue, default=2" << endl;
-	cout << "-y, --height      : the tissue height (in cells), min=1 for chain, min=4 and even for tissue, default=1" << endl;
-	cout << "-m, --minutes     : the maximum number of minutes to simulate before ending, min=1, default=1200" << endl;
-	cout << "-t, --time-steps  : the maximum number of timesteps to simulate before ending, min=1, default=10^12" << endl;
-	cout << "-r, --runs        : the number of runs, min=1, default=1" << endl;
-	cout << "-s, --seed        : the seed to generate random numbers, min=1, default=time" << endl;
-	cout << "-i, --input       : the input path and file to accept parameters from, default=input.txt" << endl;
-	cout << "-o, --output      : the path to print the output (i.e. results) to, default=output" << endl;
-	cout << "-l, --con-level   : the concentration level to print (her1, her7, her13, delta, Her1, Her7, Her13, Delta, or a dimer (e.g. Her1Her13)), default=her1" << endl;
-	cout << "-g, --granularity : the granularity of the output, i.e. print values for every x number of minutes simulated, min=0, default=0.1" << endl;
-	cout << "-p, --print       : printing interval in minutes, min=1, default=1200" << endl;
-	cout << "-k, --keep-seed   : store the seed in the specified file relative to the output directory, default=seed.txt" << endl;
-	cout << "-a, --approximate : approximate the simulation for faster results, default=unused" << endl;
-	cout << "-c, --no-color    : disable coloring the terminal output, default=unused" << endl;
-	cout << "-q, --quiet       : hide the terminal output, default=unused" << endl;
-	cout << "-l, --licensing   : view licensing information (no simulations will be run)" << endl;
-	cout << "-h, --help        : view usage information (i.e. this) (no simulations will be run)" << endl;
-	cout << endl << terminal_blue << "Example: ./stochastic -x 10 -y 6 --runs 5 --minutes 1200 -a --input set.csv --output results" << terminal_reset << endl << endl;
-	exit(has_message);
-}
 
-// licensing information
-void licensing () {
-	cout << "Stochastic simulator for zebrafish segmentation" << endl;
-	cout << "Copyright (C) 2012 Ahmet Ay (aay@colgate.edu), Jack Holland (jholland@colgate.edu), Adriana Sperlea (asperlea@colgate.edu)" << endl;
-    cout << "This program comes with ABSOLUTELY NO WARRANTY" << endl;
-    cout << "This is free software, and you are welcome to redistribute it under certain conditions;" << endl;
-	cout << "You can use this code and modify it as you wish under the condition that you refer to the article: ???" << endl;
-	exit(0);
-}
 

@@ -24,8 +24,14 @@
 
 using namespace std;
 
+
+#ifndef OUTPUT_H
+#define OUTPUT_H
+
 void create_directory(char *output_path);
 void create_file(char output_file);
 void create_mutant_dir(char output_file);
 void create_ofeat(char *str);
 void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_name, ofstream *allpassed, ofstream *oft);
+
+#endif
