@@ -375,10 +375,10 @@ void fill_gradients (rates& rs, char* gradients) {
 	if (gradients != NULL) {
 		static const char* usage_message = "There was an error reading the given gradients file.";
 		int con; // The index of the concentration
-		int column; // The column in the cell tissue
+		int step; // The column in the cell tissue
 		double factor; // The factor to apply
-		int last_column = 0; // The last column in the cell tissue given a gradient factor
-		int start_column; // The first column to apply the gradient from
+		int last_step = 0; // The last column in the cell tissue given a gradient factor
+		int start_step; // The first column to apply the gradient from
 		int i = 0; // The index in the buffer
 		while (gradients[i] != '\0') {
 			// Read the concentration value
@@ -407,19 +407,19 @@ void fill_gradients (rates& rs, char* gradients) {
 				
 				// Apply the gradient factor
 				factor /= 100;
-				start_column = last_column;
-				last_column = column;
-				for (int j = start_column + 1; j < column; j++) {
-					rs.factors_gradient[con][j] = interpolate(j, start_column, column, rs.factors_gradient[con][start_column], factor);
+				start_step = last_step;
+				last_step = step;
+				for (int j = start_step + 1; j < step; j++) {
+					rs.factors_gradient[con][j] = interpolate(j, start_step, step, rs.factors_gradient[con][start_step], factor);
 				}
-				rs.factors_gradient[con][column] = factor;
+				rs.factors_gradient[con][step] = factor;
 				while (gradients[i++] != ')') {} // Skip past the end of the pair
 				while (gradients[i] == ' ') {i++;} // Skip any whitespace before the next pair
 			}
 			
 			// Apply the last gradient factor to the rest of the columns
 			for (int j = column + 1; j < rs.width; j++) {
-				rs.factors_gradient[con][j] = rs.factors_gradient[con][column];
+				rs.factors_gradient[con][j] = rs.factors_gradient[con][step];
 			}
 			i++;
 		}

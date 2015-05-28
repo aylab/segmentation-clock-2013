@@ -166,9 +166,10 @@ int main (int argc, char** argv) {
 	double par_array[num_of_parameters]; // create an array for each parameter
 	int if_index = 0; // this keeps track of the most recently read index in the file so multiple lines can be read
 	parse_line(all_parameters, par_array, &if_index); // read the first line into the par_array array
-	parameters pars(par_array); // create the parameters struct using par_array
+	rates rs = new rates(); // create the parameters struct using par_array
 	double delay_times[num_of_delayed_reactions] = {pars.delayph1, pars.delayph7, pars.delayph13, pars.delaypd, pars.delaymh1, pars.delaymh7, pars.delaymd}; // create the delay times array
 	free(all_parameters);
+	fill_gradients(rs, gradients);
 	cout << terminal_done << endl;
 	
 	/*
