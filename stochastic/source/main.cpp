@@ -117,7 +117,7 @@ int main (int argc, char** argv) {
 	unsigned int seed = time(NULL); // the seed used to generate random numbers (using the same seed will produce the same results each time) (-s or --seed changes this)
 	char* input_file = NULL; // the path and filename containing the simulation parameters (absolute and relative paths work, this defaults to "input.txt") (-i or --input changes this)
 	char* output_path = NULL; // the directory path to print the results to (absolute and relative paths work, this defaults to "output") (-o or --output changes this)
-	char* gradients_file = NULL; // the path and filename containing the gradient (absolute and relative paths work, this defaults to NULL) (-i or --input changes this)
+	char* gradients_file = NULL; // the path and filename containing the gradient (absolute and relative paths work, this defaults to NULL) (-f or --gradients changes this)
 	unsigned int con_level = 0; // the index of the concentration level to print as output
 	double granularity = 0.1; // the amount of time to skip between each timestep when printing the output file (-g or --granularity changes this)
 	unsigned int print_interval = 1200; // how often (in minutes) the output file should be printed to (this does not change the simulation results, but is useful to see progress in very slow simulations) (-p or --print changes this)
@@ -131,90 +131,21 @@ int main (int argc, char** argv) {
 	unsigned int cells = xcells * ycells; // the total number of cells
 	int structure; // two-cell, chain, or tissue
 	int neighbors; // the number of neighbors each cell has
-	checkSize(xcells, ycells, input_file, output_path, structure, neighbors);
+	checkSize(xcells, ycells, structure, neighbors);
 	
-	int nc[cells][neighbors];
-	cells_neighbors(structure, neighbors, cells, xcells, &nc);
+	int nc[cells][7];
+	cells_neighbors(structure, neighbors, cells, xcells, nc);
 	
-	/*
-	Initialize the seed used to generate random numbers:
-	1) Store the seed in the seed file
-	2) initialize the random generator with the seed
-	*/
+	seed_init(seed_file, seed);
+
+	rates rs = new rates(50); // create the rates struct
 	
-	if (seed_file != NULL) {
-		ofstream ofile_seed;
-		ofile_seed.open(seed_file, fstream::out);
-		ofile_seed << seed << endl;
-		ofile_seed.close();
-	}
-	srand(seed);
-	
-	/*
-	File input:
-	1) Read the input file
-	2) Parse the first line of the file (mechanisms to parse more are available, but not used, 
-	   since our system uses a bash script to split parameter files into single lines 
-	   so a cluster list system can assign different parameter sets to different processors with more control/granularity)
-	3) Store each comma-separated value in the globally-used parameter struct
-	4) Create an array of delay times, each index corresponding to each delayed reaction
-	*/
-	
-	cout << terminal_blue << "Reading " << terminal_reset << input_file << " ... ";
-	char* all_parameters = NULL; // the buffer to contain the file as a string
-	read_file(input_file, &all_parameters); // read the file into the all_parameters buffer
-	double par_array[num_of_parameters]; // create an array for each parameter
-	int if_index = 0; // this keeps track of the most recently read index in the file so multiple lines can be read
-	parse_line(all_parameters, par_array, &if_index); // read the first line into the par_array array
-	rates rs = new rates(); // create the parameters struct using par_array
-	double delay_times[num_of_delayed_reactions] = {pars.delayph1, pars.delayph7, pars.delayph13, pars.delaypd, pars.delaymh1, pars.delaymh7, pars.delaymd}; // create the delay times array
-	free(all_parameters);
-	fill_gradients(rs, gradients);
-	cout << terminal_done << endl;
-	
-	/*
-	File output:
-	1) Created the output directory if necessasry
-	2) Create an array of file streams, one file per run
-	3) Print the cell width and height in the first line of each file (this is used later by data-processing scripts)
-	*/
-	
-	int path_length = strlen(output_path); // get the path length and remove the trailing slash from the path if it was given with one
-	if (output_path[path_length - 1] == '/') {
-		output_path[--path_length] = '\0';
-	}
-	cout << terminal_blue << "Creating " << terminal_reset << output_path << " directory if necessary ... ";
-	if (mkdir(output_path, 0755) != 0 && errno != EEXIST) { // make the output directory if necessary or exit the program if there was an error trying to do so
-		cout << terminal_red << "Couldn't create " << output_path << " directory!" << terminal_reset << endl;
-		exit(1);
-	}
-	cout << terminal_done << endl;
-	
+	parse_input();
+	double delay_times[num_of_delayed_reactions] = {rs.rates_base[RDELAYPH1], rs.rates_base[RDELAYPH7], rs.rates_base[RDELAYPH13], rs.rates_base[RDELAYPDELTA], rs.rates_base[RDELAYMH1], rs.rates_base[RDELAYMH7], rs.rates_base[RDELAYMDELTA]}; // create the delay times array
+		
 	ofstream ofile[runs]; // the array of file streams
-	for (unsigned int r = 0; r < runs; r++) { // for every run that will be simulated
-		int rsize = r != 0 ? log10(r) + 1 : 1; // run numbers 0-9 take one byte to write, run numbers 10-99 take two, etc.
-		char output_file[path_length + rsize + 9]; // the buffer containing the path and file name for the run output
-		memcpy(output_file, output_path, path_length);
-		output_file[path_length] = '/';
-		memcpy(output_file + path_length + 1, "run" , 3);
-		output_file[path_length + rsize + 3] = r % 10 + '0';
-		int rdig = r / 10;
-		for (int i = rsize - 2; i >= 0; i--) { // write each digit of the run number
-			output_file[path_length + i + 4] = rdig + '0';
-			rdig /= 10;
-		}
-		strcpy(output_file + path_length + rsize + 4, ".txt");
-		cout << terminal_blue << "Creating " << terminal_reset << output_file << " ... ";
-		try { // try to create the file or exit the program if there was an error trying to do so
-			ofile[r].open(output_file, fstream::out);
-			ofile[r] << xcells << " " << ycells << endl; // write the tab-separated cell width and height to the file on the first line
-		} catch (ofstream::failure) {
-			cout << terminal_red << "Couldn't create " << output_file << "!" << terminal_reset << endl;
-			exit(1);
-		}
-		cout << terminal_done << endl;
-	}	
-	
+	create_output(output_path, ofile);
+
 	int chunk = max_minutes / granularity + 1;
 	int** x; // concentrations
 	double* T; // timesteps

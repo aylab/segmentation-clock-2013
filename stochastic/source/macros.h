@@ -41,10 +41,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // these are convenient macros to calculate the maximum and minimum of two given values and the absolute value of the given value
 // don't give compound expressions as arguments to these because macros do stupid things with them (e.g. don't put max(i++, j) because then i will be incremented more times than expected)
+/*
 #define min(x, y) x < y ? x : y
 #define max(x, y) x > y ? x : y
 #define abs(x) x < 0 ? -x : x
-
+*/
 // escape codes to color the terminal output and shortcuts for common outputs (set -c or --no-color to disable these)
 #define terminal_blue_d "\x1b[34m"
 #define terminal_red_d "\x1b[31m"
