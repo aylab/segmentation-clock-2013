@@ -118,7 +118,7 @@ void store_filename (char** field, const char* value) {
     strcpy(*field, value);
 }
 
-void checkArgs(int argc, char** argv, char** input_file, char** output_path, char** ofeat_file, bool& ofeat, int& pars, int& seed, int& minutes, double& eps, double& max_prop, bool& toPrint, int &x, int &y) {
+void checkArgs(int argc, char** argv, char** input_file, char** output_path, char** gradients_file, char** ofeat_file, bool& ofeat, int& pars, int& seed, int& minutes, double& eps, double& max_prop, bool& toPrint, int &x, int &y) {
     terminal_color();    
     
     /*
@@ -145,6 +145,8 @@ void checkArgs(int argc, char** argv, char** input_file, char** output_path, cha
                 store_filename(input_file, value);
             } else if (strcmp(option, "-o") == 0 || strcmp(option, "--output") == 0) {
                 store_filename(output_path, value);
+            } else if (strcmp(option, "-g") == 0 || strcmp(option, "--gradients"){
+                store_filename(gradients_file, value);
             } else if (strcmp(option, "-s") == 0 || strcmp(option, "--seed") == 0) {
                 seed = atof(value);
                 if (seed <= 0) {

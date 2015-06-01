@@ -26,6 +26,7 @@
 #include <math.h>
 
 #include "functions.h"
+#include "macros.h"
 
 using namespace std;
 
@@ -34,36 +35,86 @@ extern char* terminal_blue;
 extern char* terminal_red;
 extern char* terminal_reset;
 
-void test_print(rates rateValues) {
-    /* 
-     Prints a set of parameters stored in rateValues.
-     */
-    
-    // protein synthesis rates
-    cout << rateValues.psh1 << "," << rateValues.psh7 << "," << rateValues.psh13 << "," << rateValues.psd << ",";
-    // protein degradation rates
-    cout << rateValues.pdh1 << "," << rateValues.pdh7 << "," << rateValues.pdh13 << "," << rateValues.pdd << ",";
-    //mRNA synthesis rates
-    cout << rateValues.msh1 << "," << rateValues.msh7 << "," << rateValues.msh13 << "," << rateValues.mdd << ",";
-    // mRNA degradation rates
-    cout << rateValues.mdh1 << "," << rateValues.mdh7 << "," << rateValues.mdh13 << "," << rateValues.mdd << ",";
-    
-    // mRNA transcription delays
-    cout << rateValues.delaymh1 << "," << rateValues.delaymh7 << "," << rateValues.delaymh13 << "," << rateValues.delaymd << ",";
-    // mRNA translation delays 
-    cout << rateValues.delayph1 << "," << rateValues.delayph7 << "," << rateValues.delayph13 << "," << rateValues.delaypd << ",";
-    
-    // dimer association rates
-    cout << rateValues.dah1h1 << "," << rateValues.dah1h7 << "," << rateValues.dah1h13 << "," << rateValues.dah7h7 << "," << rateValues.dah7h13 << "," << rateValues.dah13h13 << ",";
-    // dimer dissociation rates
-    cout << rateValues.ddh1h1 << "," << rateValues.ddh1h7 << "," << rateValues.ddh1h13 << "," << rateValues.ddh7h7 << "," << rateValues.ddh7h13 << "," << rateValues.ddh13h13 << ",";
-    // dimer degradation rates
-    cout << rateValues.ddgh1h1 << "," << rateValues.ddgh1h7 << "," << rateValues.ddgh1h13 << "," << rateValues.ddgh7h7 << "," << rateValues.ddgh7h13 << "," << rateValues.ddgh13h13 << ",";
-    
-    // critical number of molecules of Her1-Her1 or Her7-Her13 dimer protein per cell for inhibition of transcription
-    cout << rateValues.critph1h1 << "," << rateValues.critph7h13 << ",";
-    // critical number of molecules of Delta protein per cell for activation of Notch
-    cout << rateValues.critpd << endl;  
+void fill_rates(rates& rs, double items[]){
+    for (int i = 0; i < NUM_RATES; i++){
+        rs.rates_base[i] = items[i];
+        rs.curr_rates[i] = items[i];
+    }
+}
+
+void fill_gradients (rates& rs, char* gradients) {
+    if (gradients != NULL) {
+        static const char* usage_message = "There was an error reading the given gradients file.";
+        int con; // The index of the concentration
+        int step; // The column in the cell tissue
+        double factor; // The factor to apply
+        int last_step = 0; // The last column in the cell tissue given a gradient factor
+        int start_step; // The first column to apply the gradient from
+        int i = 0; // The index in the buffer
+        while (gradients[i] != '\0') {
+            // Read the concentration value
+            if (sscanf(gradients + i, "%d", &con) != 1) {
+                usage(usage_message);
+            }
+            if (con < 0 || con > NUM_RATES) {
+                usage("The given gradients file includes rate indices outside of the valid range. Please adjust the gradients file or add the appropriate rates by editing the macros file and recompiling.");
+            }
+            rs.using_gradients = true; // Mark that at least one concentration has a gradient
+            rs.has_gradient[con] = true; // Mark that this concentration has a gradient
+            
+            // Read every (position factor) pair
+            while (gradients[i++] != ' ') {} // Skip past the concentration index
+            while (not_EOL(gradients[i])) {
+                // Read a position factor pair
+                if (sscanf(gradients + i, "(%d %lf)", &step, &factor) != 2) {
+                    usage(usage_message);
+                }
+                if (step < 0 || step >= rs.steps) {
+                    usage("The given gradients file includes positions outside of the given simulation width. Please adjust the gradients file or increase the width of the simulation using -x or --total-width.");
+                }
+                if (factor < 0) {
+                    usage("The given gradients file includes factors less than 0. Please adjusted the gradients file.");
+                }
+                
+                // Apply the gradient factor
+                factor /= 100;
+                start_step = last_step;
+                last_step = step;
+                for (int j = start_step + 1; j < step; j++) {
+                    rs.factors_gradient[con][j] = interpolate(j, start_step, step, rs.factors_gradient[con][start_step], factor);
+                }
+                rs.factors_gradient[con][step] = factor;
+                while (gradients[i++] != ')') {} // Skip past the end of the pair
+                while (gradients[i] == ' ') {i++;} // Skip any whitespace before the next pair
+            }
+            
+            // Apply the last gradient factor to the rest of the steps
+            for (int j = step + 1; j < rs.steps; j++) {
+                rs.factors_gradient[con][j] = rs.factors_gradient[con][step];
+            }
+            i++;
+        }
+    }
+}
+
+//Print rates structure for testing purpose
+void print_rate(rates *rs){ 
+    for (int i = 0; i < NUM_RATES; i++){
+        cout << "Rate " << i << ": " << rs->rates_base[i] << endl;      
+        if (rs->has_gradient[i]){
+            for (int j = 0; j < rs->steps; j++){
+                cout << "Step " << j << ": " << rs->factors_gradient[i][j] << endl;
+            }               
+        } 
+    }
+}
+
+void update_rate(rates& rs, int step){
+    for (int i = 0; i < NUM_RATES; i++){
+        if (rs.has_gradient[i]){
+            rs.curr_rates[i] = rs.rates_base[i]*rs.factors_gradient[i][step];
+        }
+    }
 }
 
 void printForPlotting(string file, glevels* x, int nfinal, double eps) {
@@ -129,40 +180,40 @@ bool checkPropensities(glevels *x, rates pars, int sn, double CUTOFF) {
      Checks that the propensity functions which could be used in a stochastic simulation do not go over the set CUTOFF.
      Returns true if all propensities are < CUTOFF and false otherwise.
      */
-    if (pars.psh1       * x->mh1[0][sn] > CUTOFF) return false;
-    if (pars.pdh1       * x->ph1[0][sn] > CUTOFF) return false;
-    if (pars.dah1h1     * x->ph1[0][sn] * (x->ph1[0][sn] - 1) / 2 > CUTOFF) return false;
-    if (pars.ddh1h1     * x->ph11[0][sn] > CUTOFF) return false;
-    if (pars.dah1h7     * x->ph1[0][sn] * x->ph7[0][sn] > CUTOFF) return false;
-    if (pars.ddh1h7     * x->ph17[0][sn] > CUTOFF) return false;
-    if (pars.dah1h13    * x->ph1[0][sn] * x->ph13[0][sn] > CUTOFF) return false;
-    if (pars.ddh1h13    * x->ph113[0][sn] > CUTOFF) return false;
-    if (pars.psh7       * x->mh7[0][sn] > CUTOFF) return false;                                 
-    if (pars.pdh7       * x->ph7[0][sn] > CUTOFF) return false;                                 
-    if (pars.dah7h7     * x->ph7[0][sn] * (x->ph7[0][sn] - 1) / 2 > CUTOFF) return false;       
-    if (pars.ddh7h7     * x->ph77[0][sn] > CUTOFF) return false;                                
-    if (pars.dah7h13    * x->ph7[0][sn]  * x->ph13[0][sn] > CUTOFF) return false;
-    if (pars.ddh7h13    * x->ph713[0][sn] > CUTOFF) return false;                               
-    if (pars.psh13      * x->mh13[0][sn] > CUTOFF) return false;                                
-    if (pars.pdh13      * x->ph13[0][sn] > CUTOFF) return false;                                
-    if (pars.dah13h13   * x->ph13[0][sn] * (x->ph13[0][sn] - 1) / 2  > CUTOFF) return false;    
-    if (pars.ddh13h13   * x->ph1313[0][sn] > CUTOFF) return false;                              
-    if (pars.ddgh1h1    * x->ph11[0][sn] > CUTOFF) return false;
-    if (pars.ddgh1h7    * x->ph17[0][sn] > CUTOFF) return false;
-    if (pars.ddgh1h13   * x->ph113[0][sn] > CUTOFF) return false;
-    if (pars.ddgh7h7    * x->ph77[0][sn] > CUTOFF) return false;
-    if (pars.ddgh7h13   * x->ph713[0][sn] > CUTOFF) return false;
-    if (pars.ddgh13h13  * x->ph1313[0][sn] > CUTOFF) return false;
-    if (pars.psd        * x->md[0][sn] > CUTOFF) return false;                                                          
-    if (pars.pdd        * x->pd[0][sn] > CUTOFF) return false;                                                          
-    if (fh1(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars.msh1, pars.critph1h1, pars.critph7h13, pars.critpd) > CUTOFF) return 0; 
-    if (pars.mdh1       * x->mh1[0][sn] > CUTOFF) return false;                                                         
-    if (fh7(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars.msh7, pars.critph1h1, pars.critph7h13, pars.critpd) > CUTOFF) return 0;
-    if (pars.mdh7       * x->mh7[0][sn] > CUTOFF) return false;                                                         
-    if (pars.psh13 > CUTOFF) return 0;                                                                                  
-    if (pars.mdh13      * x->mh13[0][sn] > CUTOFF) return false;                                                            
-    if (fd(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars.msd, pars.critph1h1, pars.critph7h13, pars.critpd) > CUTOFF) return 0;   
-    if (pars.mdd        * x->md[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RPSH1]       * x->mh1[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RPDH1]       * x->ph1[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RDAH1H1]     * x->ph1[0][sn] * (x->ph1[0][sn] - 1) / 2 > CUTOFF) return false;
+    if (pars.curr_rates[RDDIH1H1]    * x->ph11[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RDAH1H7]     * x->ph1[0][sn] * x->ph7[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RDDIH1H7]    * x->ph17[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RDAH1H13]    * x->ph1[0][sn] * x->ph13[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RDDIH1H13]   * x->ph113[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RPSH7]       * x->mh7[0][sn] > CUTOFF) return false;                                 
+    if (pars.curr_rates[RPDH7]       * x->ph7[0][sn] > CUTOFF) return false;                                 
+    if (pars.curr_rates[RDAH7H7]     * x->ph7[0][sn] * (x->ph7[0][sn] - 1) / 2 > CUTOFF) return false;      
+    if (pars.curr_rates[RDDIH7H7]    * x->ph77[0][sn] > CUTOFF) return false;                               
+    if (pars.curr_rates[RDAH7H13]    * x->ph7[0][sn]  * x->ph13[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RDDIH7H13]   * x->ph713[0][sn] > CUTOFF) return false;                              
+    if (pars.curr_rates[RPSH13]      * x->mh13[0][sn] > CUTOFF) return false;                               
+    if (pars.curr_rates[RPDH13]      * x->ph13[0][sn] > CUTOFF) return false;                               
+    if (pars.curr_rates[RDAH13H13]   * x->ph13[0][sn] * (x->ph13[0][sn] - 1) / 2  > CUTOFF) return false;   
+    if (pars.curr_rates[RDDIH13H13]  * x->ph1313[0][sn] > CUTOFF) return false;                             
+    if (pars.curr_rates[RDDGH1H1]    * x->ph11[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RDDGH1H7]    * x->ph17[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RDDGH1H13]   * x->ph113[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RDDGH7H7]    * x->ph77[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RDDGH7H13]   * x->ph713[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RDDGH13H13]  * x->ph1313[0][sn] > CUTOFF) return false;
+    if (pars.curr_rates[RPSDELTA]    * x->md[0][sn] > CUTOFF) return false;                                                         
+    if (pars.curr_rates[RPDDELTA]    * x->pd[0][sn] > CUTOFF) return false;                                                         
+    if (fh1(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars.curr_rates[RMSH1], pars.curr_rates[RCRITPH1H1], pars.curr_rates[RCRITPH7H13], pars.curr_rates[RCRITPDELTA]) > CUTOFF) return 0; 
+    if (pars.curr_rates[RMDH1]       * x->mh1[0][sn] > CUTOFF) return false;                                                            
+    if (fh7(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars.curr_rates[RMSH7], pars.curr_rates[RCRITPH1H1], pars.curr_rates[RCRITPH7H13], pars.curr_rates[RCRITPDELTA]) > CUTOFF) return 0;
+    if (pars.curr_rates[RMDH7]       * x->mh7[0][sn] > CUTOFF) return false;                                                        
+    if (pars.curr_rates[RPSH13] > CUTOFF) return 0;                                                                                 
+    if (pars.curr_rates[RMDH13]      * x->mh13[0][sn] > CUTOFF) return false;                                                           
+    if (fd(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars.curr_rates[RMSDELTA], pars.curr_rates[RCRITPH1H1], pars.curr_rates[RCRITPH7H13], pars.curr_rates[RCRITPDELTA]) > CUTOFF) return 0;   
+    if (pars.curr_rates[RMDDELTA]    * x->md[0][sn] > CUTOFF) return false;
     return true;
 }
 
@@ -179,16 +230,16 @@ void parseLine(char* buffer, double items[], int &index)
     // Check every character in the buffer
     for (i = index; buffer[i] != '\n' && buffer[i] != '\0'; i++) {
         // When a comma is found, it marks the end of one number
-    if (buffer[i] == ',') {
+        if (buffer[i] == ',') {
             // Convert it into a double and add it to index
-        items[itindex ++] = atof(db);
+            items[itindex ++] = atof(db);
             db[0] = '\0';
-    } else {
+        } else {
             // If the current character is not a comma then continue adding digits to the number currently being created
-        int orsize = strlen(db);
-        db[orsize] = buffer[i];
-        db[orsize + 1] = '\0';
-    }
+            int orsize = strlen(db);
+            db[orsize] = buffer[i];
+            db[orsize + 1] = '\0';
+        }
     }
     index = i + 1;
     items[itindex] = atof(db);
@@ -286,7 +337,7 @@ void generate_set(double items[])
     items[44] = make_random(critpd);
 }
 
-void store_values(char* input_file, char* buffer, int &index, rates *rateValues, const int STEP, int seed){
+void store_values(char* input_file, char* buffer, int &index, rates *rateValues, const int STEP, int seed, char *gradients){
     /*
      Stores sets of parameters into the rateValues structure.
      The sets are either taken from the input file given by the user, or generated according to a random seed.
@@ -304,67 +355,10 @@ void store_values(char* input_file, char* buffer, int &index, rates *rateValues,
             seedfile << seed;
             seedfile.close();
         }
-        // protein synthesis rates
-        rateValues[i].psh1 = items[0];
-        rateValues[i].psh7 = items[1];
-        rateValues[i].psh13 = items[2];
-        rateValues[i].psd = items[3];
-        // protein degradation rates
-        rateValues[i].pdh1 = items[4];
-        rateValues[i].pdh7 = items[5];
-        rateValues[i].pdh13 = items[6];
-        rateValues[i].pdd = items[7];
-        
-        // mRNA synthesis rates 
-        rateValues[i].msh1 = items[8];
-        rateValues[i].msh7 = items[9];
-        rateValues[i].msh13 = items[10];
-        rateValues[i].msd = items[11];
-        // mRNA degradation rates
-        rateValues[i].mdh1 = items[12];
-        rateValues[i].mdh7 = items[13];
-        rateValues[i].mdh13 = items[14];
-        rateValues[i].mdd = items[15];
-        
-        // dimer degradation rates
-        rateValues[i].ddgh1h1 = items[16];
-        rateValues[i].ddgh1h7 = items[17];
-        rateValues[i].ddgh1h13 = items[18];
-        rateValues[i].ddgh7h7 = items[19];
-        rateValues[i].ddgh7h13 = items[20];
-        rateValues[i].ddgh13h13 = items[21];
-        
-        // mRNA transcription delays
-        rateValues[i].delaymh1 = items[22];
-        rateValues[i].delaymh7 = items[23];
-        rateValues[i].delaymh13 = items[24];
-        rateValues[i].delaymd = items[25]; 
-        // mRNA translation delays
-        rateValues[i].delayph1 = items[26]; 
-        rateValues[i].delayph7 = items[27];  
-        rateValues[i].delayph13 = items[28];  
-        rateValues[i].delaypd = items[29];  
-        
-        // dimer association rates
-        rateValues[i].dah1h1 = items[30]; 
-        rateValues[i].dah1h7 = items[32];
-        rateValues[i].dah1h13 = items[34];
-        rateValues[i].dah7h7 = items[36];
-        rateValues[i].dah7h13 = items[38];
-        rateValues[i].dah13h13 = items[40];
-        // dimer degradation rates
-        rateValues[i].ddh1h1 = items[31]; 
-        rateValues[i].ddh1h7 = items[33];
-        rateValues[i].ddh1h13 = items[35];
-        rateValues[i].ddh7h7 = items[37];
-        rateValues[i].ddh7h13 = items[39];
-        rateValues[i].ddh13h13 = items[41];
-
-        // critical number of Her1-Her1, Her7-Her13 dimer proteins for inhibition of transcription
-        rateValues[i].critph1h1 = items[42];
-        rateValues[i].critph7h13 = items[43];
-        // critical Delta proteins for inhibition
-        rateValues[i].critpd = items[44];
+        fill_rates(rateValues[i], items);
+        if (gradients != NULL){
+            fill_gradients(rateValues[i], gradients);
+        }
     }
 }
 
@@ -404,13 +398,13 @@ bool model(double eps, int nfinal, glevels *g, rates r, double max_prop, int col
     
     // Convert the time delay values to integers, because the deterministic simulation uses discrete time points.
     int ndelaymd, ndelayph1, ndelayph7, ndelayph13, ndelaypd, ndelaymh1, ndelaymh7; 
-    ndelayph1 = int(r.delayph1/eps);
-    ndelayph7 = int(r.delayph7/eps);
-    ndelayph13 = int(r.delayph13/eps);
-    ndelaypd = int(r.delaypd/eps);
-    ndelaymd = int(r.delaymd/eps);
-    ndelaymh1 = int(r.delaymh1/eps);
-    ndelaymh7 = int(r.delaymh7/eps);
+    ndelayph1 = int(r.curr_rates[RDELAYPH1]/eps);
+    ndelayph7 = int(r.curr_rates[RDELAYPH7]/eps);
+    ndelayph13 = int(r.curr_rates[RDELAYPH13]/eps);
+    ndelaypd = int(r.curr_rates[RDELAYPDELTA]/eps);
+    ndelaymd = int(r.curr_rates[RDELAYMDELTA]/eps);
+    ndelaymh1 = int(r.curr_rates[RDELAYMH1]/eps);
+    ndelaymh7 = int(r.curr_rates[RDELAYMH7]/eps);
 
     int nmh1, nph1; 
     int nmh7, nph7;
@@ -418,7 +412,13 @@ bool model(double eps, int nfinal, glevels *g, rates r, double max_prop, int col
     int nmd, npd;
 
     int cells = rows * columns;
+    int last_step = 1; //last step when we recalculate the rates based on gradient factors
+    int step_size = nfinal/50; //the distance between 2 points we recalculate the rates
     for (int n = 1; n < nfinal; n++) {
+        if ((n-last_step) >= step_size){
+            update_rate(rs, last_step/step_size + 1);
+            last_step = n;
+        }
         for (int i = 0; i < cells; i++) {
             nmh1 = ndelaymh1, nph1 = ndelayph1;
             nmh7 = ndelaymh7, nph7 = ndelayph7;
@@ -426,32 +426,30 @@ bool model(double eps, int nfinal, glevels *g, rates r, double max_prop, int col
             nmd = ndelaymd, npd = ndelaypd;
     
             //Protein synthesis
-            g->ph1[i][n] = g->ph1[i][n - 1] + eps * ((n > nph1 ? r.psh1 * g->mh1[i][n - nph1]:0)-r.pdh1*g->ph1[i][n - 1]-2*r.dah1h1*g->ph1[i][n - 1]*g->ph1[i][n - 1]+2*r.ddh1h1*g->ph11[i][n - 1]-r.dah1h7*g->ph1[i][n - 1]*g->ph7[i][n - 1]+r.ddh1h7*g->ph17[i][n - 1]-r.dah1h13*g->ph1[i][n - 1]*g->ph13[i][n - 1]+r.ddh1h13*g->ph113[i][n - 1]);
-            g->ph7[i][n] = g->ph7[i][n - 1] + eps * ((n > nph7 ? r.psh7*g->mh7[i][n - nph7]:0)-r.pdh7*g->ph7[i][n - 1]-2*r.dah7h7*g->ph7[i][n - 1]*g->ph7[i][n - 1]+2*r.ddh7h7*g->ph77[i][n - 1]-r.dah1h7*g->ph1[i][n - 1]*g->ph7[i][n - 1]+r.ddh1h7*g->ph17[i][n - 1]-r.dah7h13*g->ph7[i][n - 1]*g->ph13[i][n - 1]+r.ddh7h13*g->ph713[i][n - 1]);
-            g->ph13[i][n] = g->ph13[i][n - 1] + eps * ((n > nph13 ? r.psh13*g->mh13[i][n - nph13]:0)-r.pdh13*g->ph13[i][n - 1]-2*r.dah13h13*g->ph13[i][n - 1]*g->ph13[i][n - 1]+2*r.ddh13h13*g->ph1313[i][n - 1]-r.dah1h13*g->ph1[i][n - 1]*g->ph13[i][n - 1]+r.ddh1h13*g->ph113[i][n - 1]-r.dah7h13*g->ph7[i][n - 1]*g->ph13[i][n - 1]+r.ddh7h13*g->ph713[i][n - 1]);
+            g->ph1[i][n] = g->ph1[i][n - 1] + eps * ((n > nph1 ? r.curr_rates[RPSH1] * g->mh1[i][n - nph1]:0)-r.curr_rates[RPDH1]*g->ph1[i][n - 1]-2*r.curr_rates[RDAH1H1]*g->ph1[i][n - 1]*g->ph1[i][n - 1]+2*r.curr_rates[RDDIH1H1]*g->ph11[i][n - 1]-r.curr_rates[RDAH1H7]*g->ph1[i][n - 1]*g->ph7[i][n - 1]+r.curr_rates[RDDIH1H7]*g->ph17[i][n - 1]-r.curr_rates[RDAH1H13]*g->ph1[i][n - 1]*g->ph13[i][n - 1]+r.curr_rates[RDDIH1H13]*g->ph113[i][n - 1]);
+            g->ph7[i][n] = g->ph7[i][n - 1] + eps * ((n > nph7 ? r.curr_rates[RPSH7]*g->mh7[i][n - nph7]:0)-r.curr_rates[RPDH7]*g->ph7[i][n - 1]-2*r.curr_rates[RDAH7H7]*g->ph7[i][n - 1]*g->ph7[i][n - 1]+2*r.curr_rates[RDDIH7H7]*g->ph77[i][n - 1]-r.curr_rates[RDAH1H7]*g->ph1[i][n - 1]*g->ph7[i][n - 1]+r.curr_rates[RDDIH1H7]*g->ph17[i][n - 1]-r.curr_rates[RDAH7H13]*g->ph7[i][n - 1]*g->ph13[i][n - 1]+r.curr_rates[RDDIH7H13]*g->ph713[i][n - 1]);
+            g->ph13[i][n] = g->ph13[i][n - 1] + eps * ((n > nph13 ? r.curr_rates[RPSH13]*g->mh13[i][n - nph13]:0)-r.curr_rates[RPDH13]*g->ph13[i][n - 1]-2*r.curr_rates[RDAH13H13]*g->ph13[i][n - 1]*g->ph13[i][n - 1]+2*r.curr_rates[RDDIH13H13]*g->ph1313[i][n - 1]-r.curr_rates[RDAH1H13]*g->ph1[i][n - 1]*g->ph13[i][n - 1]+r.curr_rates[RDDIH1H13]*g->ph113[i][n - 1]-r.curr_rates[RDAH7H13]*g->ph7[i][n - 1]*g->ph13[i][n - 1]+r.curr_rates[RDDIH7H13]*g->ph713[i][n - 1]);
             if (g->ph1[i][n] < 0 || g->ph7[i][n] < 0 || g->ph13[i][n] < 0) {
                 return false;
             }
 
             //Dimer proteins
-            g->ph11[i][n] = g->ph11[i][n - 1] + eps * (r.dah1h1*g->ph1[i][n - 1]*g->ph1[i][n - 1]-r.ddh1h1*g->ph11[i][n - 1]-r.ddgh1h1*g->ph11[i][n - 1]);
-            g->ph17[i][n] = g->ph17[i][n - 1] + eps * (r.dah1h7*g->ph1[i][n - 1]*g->ph7[i][n - 1]-r.ddh1h7*g->ph17[i][n - 1]-r.ddgh1h7*g->ph17[i][n - 1]);
-            g->ph113[i][n] = g->ph113[i][n - 1] + eps * (r.dah1h13*g->ph1[i][n - 1]*g->ph13[i][n - 1]-r.ddh1h13*g->ph113[i][n - 1]-r.ddgh1h13*g->ph113[i][n - 1]);
-            g->ph77[i][n] = g->ph77[i][n - 1] + eps * (r.dah7h7*g->ph7[i][n - 1]*g->ph7[i][n - 1]-r.ddh7h7*g->ph77[i][n - 1]-r.ddgh7h7*g->ph77[i][n - 1]);
-            g->ph713[i][n] = g->ph713[i][n - 1] + eps * (r.dah7h13*g->ph7[i][n - 1]*g->ph13[i][n - 1]-r.ddh7h13*g->ph713[i][n - 1]-r.ddgh7h13*g->ph713[i][n - 1]);
-            g->ph1313[i][n] = g->ph1313[i][n - 1] + eps * (r.dah13h13*g->ph13[i][n - 1]*g->ph13[i][n - 1]-r.ddh13h13*g->ph1313[i][n - 1]-r.ddgh13h13*g->ph1313[i][n - 1]);
+            g->ph11[i][n] = g->ph11[i][n - 1] + eps * (r.curr_rates[RDAH1H1]*g->ph1[i][n - 1]*g->ph1[i][n - 1]-r.curr_rates[RDDIH1H1]*g->ph11[i][n - 1]-r.curr_rates[RDDGH1H1]*g->ph11[i][n - 1]);
+            g->ph17[i][n] = g->ph17[i][n - 1] + eps * (r.curr_rates[RDAH1H7]*g->ph1[i][n - 1]*g->ph7[i][n - 1]-r.curr_rates[RDDIH1H7]*g->ph17[i][n - 1]-r.curr_rates[RDDGH1H7]*g->ph17[i][n - 1]);
+            g->ph113[i][n] = g->ph113[i][n - 1] + eps * (r.curr_rates[RDAH1H13]*g->ph1[i][n - 1]*g->ph13[i][n - 1]-r.curr_rates[RDDIH1H13]*g->ph113[i][n - 1]-r.curr_rates[RDDGH1H13]*g->ph113[i][n - 1]);
+            g->ph77[i][n] = g->ph77[i][n - 1] + eps * (r.curr_rates[RDAH7H7]*g->ph7[i][n - 1]*g->ph7[i][n - 1]-r.curr_rates[RDDIH7H7]*g->ph77[i][n - 1]-r.curr_rates[RDDGH7H7]*g->ph77[i][n - 1]);
+            g->ph713[i][n] = g->ph713[i][n - 1] + eps * (r.curr_rates[RDAH7H13]*g->ph7[i][n - 1]*g->ph13[i][n - 1]-r.curr_rates[RDDIH7H13]*g->ph713[i][n - 1]-r.curr_rates[RDDGH7H13]*g->ph713[i][n - 1]);
+            g->ph1313[i][n] = g->ph1313[i][n - 1] + eps * (r.curr_rates[RDAH13H13]*g->ph13[i][n - 1]*g->ph13[i][n - 1]-r.curr_rates[RDDIH13H13]*g->ph1313[i][n - 1]-r.curr_rates[RDDGH13H13]*g->ph1313[i][n - 1]);
                         
             // Delta Protein
-            g->pd[i][n] = g->pd[i][n - 1] + eps*((n > npd ? r.psd*g->md[i][n-npd]:0)-r.pdd*g->pd[i][n - 1]);
+            g->pd[i][n] = g->pd[i][n - 1] + eps*((n > npd ? r.curr_rates[RPSDELTA]*g->md[i][n-npd]:0)-r.curr_rates[RPDDELTA]*g->pd[i][n - 1]);
             
             if (g->ph11[i][n] < 0 || g->ph17[i][n] < 0 || g->ph113[i][n] < 0 || g->ph77[i][n] < 0 || g->ph713[i][n] < 0 || g->ph1313[i][n] < 0 || g->pd[i][n] < 0) {
                 return false;
             }
             
             /*
-             Compute the value of the delta protein coming from the neighbors for each cell. 
-             In two-cell systems, both cells are neighbors of each other. 
-             Chains wrap horizontally and hexagonal
+             Compute the value of the delta protein coming from the neighbors for each cell. In two-cell systems, both cells are neighbors of each other. Chains wrap horizontally and hexagonal
              tissue grids wrap horizontally and vertically like a honeycomb.
              Two-cell systems look like this:
              ___  ___
@@ -483,15 +481,12 @@ bool model(double eps, int nfinal, glevels *g, rates r, double max_prop, int col
             double avgpdh1 = 0, avgpdh7 = 0, avgpdd = 0;
             if (rows == 1) {
                 if (columns == 2) {
-                    /* If there are only two cells, 
-                    the only delta input is coming from the other cell
-                    */
+                    // If there are only two cells, the only delta input is coming from the other cell
                     avgpdh1 = g->pd[1 - i][n - nmh1];
                     avgpdh7 = g->pd[1 - i][n - nmh7];
                     avgpdd = g->pd[1 - i][n - nmd];
                 } else {
-                    /* If there is a chain of cells, 
-                    the delta input is coming from the two cells to the left and right*/
+                    // If there is a chain of cells, the delta input is coming from the two cells to the left and right
                     int left = fix(i - 1, columns), right = fix(i + 1, columns);
                     avgpdh1 = (g->pd[left][n - nmh1] + g->pd[right][n - nmh1]) / 2;
                     avgpdh7 = (g->pd[left][n - nmh7] + g->pd[right][n - nmh7]) / 2;
@@ -535,10 +530,10 @@ bool model(double eps, int nfinal, glevels *g, rates r, double max_prop, int col
             }
             
             // mRNA Synthesis
-            g->mh1[i][n] = g->mh1[i][n - 1] + eps * ((n > nmh1 ? fh1(g->ph11[i][n - nmh1], g->ph713[i][n - nmh1], avgpdh1, r.msh1, r.critph1h1, r.critph7h13, r.critpd):fh1(0, 0, 0, r.msh1, r.critph1h1, r.critph7h13, r.critpd))-r.mdh1*g->mh1[i][n - 1]);
-            g->mh7[i][n] = g->mh7[i][n - 1] + eps * ((n > nmh7 ? fh7(g->ph11[i][n - nmh7], g->ph713[i][n - nmh7], avgpdh7, r. msh7, r.critph1h1, r.critph7h13, r.critpd):fh7(0, 0, 0, r.msh7, r.critph1h1, r.critph7h13, r.critpd))-r.mdh7*g->mh7[i][n - 1]);
-            g->mh13[i][n] = g->mh13[i][n - 1] + eps * (r.msh13-r.mdh13*g->mh13[i][n - 1]); 
-            g->md[i][n] = g->md[i][n - 1] + eps * ((n > nmd ? fd(g->ph11[i][n - nmd], g->ph713[i][n - nmd], avgpdd, r.msd, r.critph1h1, r.critph7h13, r.critpd):fd(0, 0, 0, r.msd, r.critph1h1, r.critph7h13, r.critpd))-r.mdd*g->md[i][n - 1]);
+            g->mh1[i][n] = g->mh1[i][n - 1] + eps * ((n > nmh1 ? fh1(g->ph11[i][n - nmh1], g->ph713[i][n - nmh1], avgpdh1, r.curr_rates[RMSH1], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]):fh1(0, 0, 0, r.curr_rates[RMSH1], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]))-r.curr_rates[RMDH1]*g->mh1[i][n - 1]);
+            g->mh7[i][n] = g->mh7[i][n - 1] + eps * ((n > nmh7 ? fh7(g->ph11[i][n - nmh7], g->ph713[i][n - nmh7], avgpdh7, r.curr_rates[RMSH7], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]):fh7(0, 0, 0, r.curr_rates[RMSH7], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]))-r.curr_rates[RMDH7]*g->mh7[i][n - 1]);
+            g->mh13[i][n] = g->mh13[i][n - 1] + eps * (r.curr_rates[RMSH13]-r.curr_rates[RMDH13]*g->mh13[i][n - 1]); 
+            g->md[i][n] = g->md[i][n - 1] + eps * ((n > nmd ? fd(g->ph11[i][n - nmd], g->ph713[i][n - nmd], avgpdd, r.curr_rates[RMSDELTA], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]):fd(0, 0, 0, r.curr_rates[RMSDELTA], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]))-r.curr_rates[RMDDELTA]*g->md[i][n - 1]);
             if (g->mh1[i][n] < 0 || g->mh7[i][n] < 0 || g-> mh13[i][n] < 0 || g-> md[i][n] < 0) {
                 return false;
             }
@@ -564,7 +559,7 @@ bool run_mutant(glevels *g, int t_steps, double eps, rates temp_rate, data &of, 
     ofeatures(g, eps, t_steps, wild, of); 
     return pass;
 }
-
+/
 void ofeatures(glevels *g, double eps, int nfinal, bool wild, data &d) {
     /*
      Calculates the oscillation features -- period, amplitude and peak to trough

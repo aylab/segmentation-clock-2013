@@ -61,36 +61,37 @@ struct glevels {
     ~glevels();
 };
 
-struct rates{
-    /*
-     Structure for storing parameter sets.
-     */
+struct rates {
+    double rates_base[NUM_RATES]; // Base rates taken from the current parameter set
+    double curr_rates[NUM_RATES]; // Current rates calculated using base rates and gradient factors
+    bool using_gradients; // Whether or not any rates have specified perturbations
+    double* factors_gradient[NUM_RATES]; // Gradients (as arrays of (step, percentage with 1=100%) pairs) taken from the gradients input file
+    bool has_gradient[NUM_RATES]; // Whether each rate has a specified gradient
+    int steps;
+    //double* rates_active[NUM_RATES]; // Rates per cell position that factor in the base rates, each cell's perburations, and the gradients at each position
     
-    // protein synthesis rates
-    double psh1, psh7, psh13, psd;
-    // protein degradation rates
-    double pdh1, pdh7, pdh13, pdd;
-    // mRNA synthesis rates
-    double msh1, msh7, msh13, msd;
-    // mRNA degradation rates
-    double mdh1, mdh7, mdh13, mdd;
-    // dimer degradation rates
-    double ddgh1h1, ddgh1h7, ddgh1h13, ddgh7h7, ddgh7h13, ddgh13h13;
+    explicit rates (int steps) {
+        memset(this->rates_base, 0, sizeof(this->rates_base));
+        memset(this->curr_rates, 0, sizeof(this->curr_rates));
+        this->using_gradients = false;
+        this->steps = steps;
+        for (int i = 0; i < NUM_RATES; i++) {
+            this->factors_gradient[i] = new double[steps];
+            for (int j = 0; j < steps; j++) {
+                this->factors_gradient[i][j] = 1;
+            }
+            this->has_gradient[i] = false;
+            //this->rates_active[i] = new double[cells];
+        }
+    }
     
-    // mRNA transcription delays
-    double delaymh1, delaymh7, delaymh13, delaymd;
-    // mRNA translation delays
-    double delayph1, delayph7, delayph13, delaypd;
+    ~rates () {
+        for (int i = 0; i < NUM_RATES; i++) {
+            delete[] this->factors_gradient[i];
+            //delete[] this->rates_active[i];
+        }
+    }
     
-    // dimer association rates
-    double dah1h1, dah1h7, dah1h13, dah7h7, dah7h13, dah13h13;
-    // dimer dissociation rates
-    double ddh1h1, ddh1h7, ddh1h13, ddh7h7, ddh7h13, ddh13h13; 
-     
-    // critical number of molecules of Her1-Her1 or Her7-Her13 dimer protein per cell for inhibition of transcription
-    double critph1h1, critph7h13; // critical number of molecules of HerX OR Her7 protein per cell for inhibition of transcription
-    // critical number of molecules of Delta protein per cell for activation of Notch
-    double critpd; // critical number of molecules of Delta protein per cell for activation of Notch
 };
 
 struct data{
@@ -113,6 +114,9 @@ void skipFirstLine(char*, int&);
 void usage(const char*);
 void licensing();
 bool run_mutant(glevels*, int, double, rates, data&, bool, double, int, int);
+void fill_rates(rates& rs, char *buffer, int *index);
+void fill_gradients (rates& rs, char* gradients);
+void print_rate(rates *rs);
 
 inline void clear_data(data &d){
     d.period = 0.0;

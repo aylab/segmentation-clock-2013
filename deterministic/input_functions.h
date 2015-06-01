@@ -22,9 +22,9 @@
 #include <string>
 
 using namespace std;
+// escape codes to color the terminal output and shortcuts for common outputs (set -c or --no-color to disable these)
 #ifndef INPUT_H
 #define INPUT_H
-// escape codes to color the terminal output and shortcuts for common outputs (set -c or --no-color to disable these)
 
 #define terminal_blue_d "\x1b[34m"
 #define terminal_red_d "\x1b[31m"
@@ -36,6 +36,6 @@ void readFile(char **buffer, char* input_file);
 void create_buffer (char *buffer, char *input_file);
 void terminal_color();
 void store_filename (char** field, const char* value);
-void checkArgs(int, char**, char**, char**, char**, bool&, int&, int&, int&, double&, double&, bool&, int&, int&);
+void checkArgs(int, char**, char**, char**, char**, char**, bool&, int&, int&, int&, double&, double&, bool&, int&, int&);
 
 #endif

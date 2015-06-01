@@ -53,7 +53,7 @@ int main(int argc, char** argv)
      Process user input and handle output files.
      */
     // Check for user inputed arguments and initialize default values
-    char *input_file = NULL, *output_path = NULL, *ofeat_file = NULL; // input and output file paths (either absolute or relative)
+    char *input_file = NULL, *output_path = NULL, *gradients_file = NULL, *ofeat_file = NULL; // input and output file paths (either absolute or relative)
     int PARS = 1; // number of parameters to simulate, default value is 1
     int x = 2, y = 1; // width and height of the tissue being simulated, default is 2x1
     int minutes = 1200; // number of minutes to run each simulation for, default is 1200
@@ -62,13 +62,15 @@ int main(int argc, char** argv)
     double eps = 0.01; // time step to be used for Euler's method, default is 0.01
     double max_prop = INFINITY; // maximum threshold for propensity functions, default is INFINITY
     bool toPrint = false, ofeat = false; // boolean marking whether or not concentrations should be printed to a text file
-    checkArgs(argc, argv, &input_file, &output_path, &ofeat_file, ofeat, PARS, seed, minutes, eps, max_prop, toPrint, x, y);
+    checkArgs(argc, argv, &input_file, &output_path, &gradients_file, &ofeat_file, ofeat, PARS, seed, minutes, eps, max_prop, toPrint, x, y);
     rates rateValues[CHUNK_SIZE];
 
     // Read the entire input file into a char array buffer to speed up I/O
     char *buffer;
+    char *gradients = NULL;
     int index = 0;
-    create_buffer(buffer, input_file);  
+    create_buffer(buffer, input_file);
+    create_buffer(gradients, gradients_file);  
 
 
     //Create output files
