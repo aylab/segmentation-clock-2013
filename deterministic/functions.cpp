@@ -117,6 +117,12 @@ void update_rate(rates& rs, int step){
     }
 }
 
+void reset_rate(rates& rs){
+    for (int i = 0; i < NUM_RATES; i++){
+        rs.curr_rates[i] = rs.rates_base[i];
+    }
+}
+
 void printForPlotting(string file, glevels* x, int nfinal, double eps) {
     /*
      Prints the concentrations of her1 mRNA into a specified output file.

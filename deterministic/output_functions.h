@@ -30,8 +30,8 @@ using namespace std;
 
 void create_directory(char *output_path);
 void create_file(char output_file);
-void create_mutant_dir(char output_file);
+void create_mutant_dir(char output_file, string mutants[]);
 void create_ofeat(char *str);
-void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_name, ofstream *allpassed, ofstream *oft);
+void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_name, ofstream *allpassed, ofstream *oft, string mutants[]);
 
 #endif

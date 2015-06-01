@@ -21,6 +21,8 @@
 #include <iostream>
 #include <string>
 
+#include "macros.h"
+
 using namespace std;
 
 #ifndef FUNC_H
@@ -117,6 +119,8 @@ bool run_mutant(glevels*, int, double, rates, data&, bool, double, int, int);
 void fill_rates(rates& rs, char *buffer, int *index);
 void fill_gradients (rates& rs, char* gradients);
 void print_rate(rates *rs);
+void update_rate(rates& rs, int step);
+void reset_rate(rates& rs);
 
 inline void clear_data(data &d){
     d.period = 0.0;

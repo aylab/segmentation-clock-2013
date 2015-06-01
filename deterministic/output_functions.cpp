@@ -70,8 +70,7 @@ void create_file(char *output_file, ofstream *allpassed){
     cout << terminal_done << endl;
 }
 
-void create_mutant_dir(char *output_path){
-    string mutants[6] = {"/wt", "/delta", "/her13", "/her1", "/her7", "/her713"};
+void create_mutant_dir(char *output_path, string mutants[]){    
     char output_dir[strlen(output_path)];
     for (int mut = 0; mut < 6; mut++) {
         strcpy(output_dir, output_path);
@@ -112,7 +111,7 @@ void create_file_name(char *buff, char *output_path, int path_length, char *file
     buff[path_length + file_name_length + 1] = '\0';
 }
 
-void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_name, ofstream *allpassed, ofstream *oft){
+void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_name, ofstream *allpassed, ofstream *oft, string mutants[]){
     // Create output files    
     
     int path_length = strlen(output_path); // get the path length and remove the trailing slash from the path if it was given with one
@@ -131,7 +130,7 @@ void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_name
     create_file(output_file, allpassed);
     
     if (toPrint) {
-        create_mutant_dir(output_path);
+        create_mutant_dir(output_path, mutants);
     }
     
     if (ofeat) {

@@ -19,65 +19,66 @@
 #ifndef MACROS_H
 #define MACROS_H
 
-// mRNA synthesis rates
-#define RMSH1			0
-#define RMSH7			1
-#define RMSH13			2
-#define RMSDELTA		3
-
-// mRNA degradation rates
-#define RMDH1			4
-#define RMDH7			5
-#define RMDH13			6
-#define RMDDELTA		7
-
 // Protein synthesis rates
-#define RPSH1			8
-#define RPSH7			9
-#define RPSH13			10
-#define RPSDELTA		11
+#define RPSH1			0
+#define RPSH7			1
+#define RPSH13			2
+#define RPSDELTA		3
 
 // Protein degradation rates
-#define RPDH1			12
-#define RPDH7			13
-#define RPDH13			14
-#define RPDDELTA		15
+#define RPDH1			4
+#define RPDH7			5
+#define RPDH13			6
+#define RPDDELTA		7
 
-// Dimer association rates
-#define RDAH1H1			16
-#define RDAH1H7			17
-#define RDAH1H13		18
-#define RDAH7H7			19
-#define RDAH7H13		20
-#define RDAH13H13		21
+// mRNA synthesis rates
+#define RMSH1			8
+#define RMSH7			9
+#define RMSH13			10
+#define RMSDELTA		11
 
-// Dimer dissociation rates
-#define RDDIH1H1		22
-#define RDDIH1H7		23
-#define RDDIH1H13		24
-#define RDDIH7H7		25
-#define RDDIH7H13		26
-#define RDDIH13H13		27
+// mRNA degradation rates
+#define RMDH1			12
+#define RMDH7			13
+#define RMDH13			14
+#define RMDDELTA		15
 
 // Dimer degradation rates
-#define RDDGH1H1		28
-#define RDDGH1H7		29
-#define RDDGH1H13		30
-#define RDDGH7H7		31
-#define RDDGH7H13		32
-#define RDDGH13H13		33
+#define RDDGH1H1		16
+#define RDDGH1H7		17
+#define RDDGH1H13		18
+#define RDDGH7H7		19
+#define RDDGH7H13		20
+#define RDDGH13H13		21
 
 // mRNA transcription delays
-#define RDELAYMH1		34
-#define RDELAYMH7		35
-#define RDELAYMH13		36
-#define RDELAYMDELTA	37
+#define RDELAYMH1		22
+#define RDELAYMH7		23
+#define RDELAYMH13		24
+#define RDELAYMDELTA	25
 
 // Protein translation delays
-#define RDELAYPH1		38
-#define RDELAYPH7		39
-#define RDELAYPH13		40
-#define RDELAYPDELTA	41
+#define RDELAYPH1		26
+#define RDELAYPH7		27
+#define RDELAYPH13		28
+#define RDELAYPDELTA	29
+
+// Dimer association rates
+#define RDAH1H1			30
+#define RDAH1H7			31
+#define RDAH1H13		32
+#define RDAH7H7			33
+#define RDAH7H13		34
+#define RDAH13H13		35
+
+// Dimer dissociation rates
+#define RDDIH1H1		36
+#define RDDIH1H7		37
+#define RDDIH1H13		38
+#define RDDIH7H7		39
+#define RDDIH7H13		40
+#define RDDIH13H13		41
+
 
 // Critical number of molecules of proteins per cell for inhibition of transcription
 #define RCRITPH1H1 		42

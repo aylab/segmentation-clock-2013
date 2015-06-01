@@ -36,9 +36,13 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "functions.h"
-#include "io_function.h"
+#include "input_functions.h"
+#include "output_functions.h"
+#include "macros.h"
 using namespace std;
 
 const int CHUNK_SIZE = 10000; // size of chunk which is read from the input buffer at a time
@@ -74,8 +78,9 @@ int main(int argc, char** argv)
 
 
     //Create output files
+    string mutants[6] = {"/wt", "/delta", "/her13", "/her1", "/her7", "/her713"};
     ofstream allpassed, oft;
-    create_output(output_path, toPrint, ofeat, ofeat_file, &allpassed, &oft);
+    create_output(output_path, toPrint, ofeat, ofeat_file, &allpassed, &oft, mutants);
 
 
     // Iterate through every paramater set
@@ -120,7 +125,8 @@ int main(int argc, char** argv)
             wt = fwildtype(of_wt.peaktotrough1, of_wt.peaktotrough2); 
             if (!wt) continue; 
 
-            temp_rate.psd = 0.0; 
+            temp_rate.rates_base[RPSDELTA] = 0.0; 
+            reset_rate(temp_rate);
             delta = run_mutant(&gene, t_steps, eps, temp_rate, of_delta, false, max_prop, x, y);
             if (toPrint) {
                 printForPlotting(mutants[1] + "/run0.txt", &gene, t_steps, eps);
@@ -128,9 +134,10 @@ int main(int argc, char** argv)
 	    	if (!delta) continue; 
             delta = fd_mutant(of_delta.period, of_delta.amplitude, of_wt.period); 
             if (!delta) continue; 
-            temp_rate.psd = rateValues[i].psd; 
+            temp_rate.rates_base[RPSDELTA] = rateValues[i].rates_base[RPSDELTA]; 
             
-            temp_rate.psh13 = 0.0; 
+            temp_rate.rates_base[RPSH13] = 0.0;
+            reset_rate(temp_rate); 
             her13 = run_mutant(&gene, t_steps, eps, temp_rate, of_her13, false, max_prop, x, y);
             if (toPrint) {
                 printForPlotting(mutants[2] + "/run0.txt", &gene, t_steps, eps);
@@ -138,9 +145,10 @@ int main(int argc, char** argv)
 	    	if (!her13) continue; 
             her13 = f13_mutant(of_her13.period, of_her13.amplitude, of_wt.period);
             if (!her13) continue; 
-            temp_rate.psh13 = rateValues[i].psh13; 
+            temp_rate.rates_base[RPSH13] = rateValues[i].rates_base[RPSH13]; 
             
-            temp_rate.psh1 = 0.0;
+            temp_rate.rates_base[RPSH1] = 0.0;
+            reset_rate(temp_rate);
             her1 = run_mutant(&gene, t_steps, eps, temp_rate, of_her1, false, max_prop, x, y);
             if (toPrint) {
                 printForPlotting(mutants[3] + "/run0.txt", &gene, t_steps, eps);
@@ -148,9 +156,10 @@ int main(int argc, char** argv)
 	    	if (!her1) continue;
             her1 = f1_mutant(of_her1.period, of_her1.amplitude, of_wt.period);
             if (!her1) continue;
-            temp_rate.psh1 = rateValues[i].psh1;
+            temp_rate.rates_base[RPSH1] = rateValues[i].rates_base[RPSH1];
             
-            temp_rate.psh7 = 0.0;
+            temp_rate.rates_base[RPSH7] = 0.0;
+            reset_rate(temp_rate);
             her7 = run_mutant(&gene, t_steps, eps, temp_rate, of_her7, true, max_prop, x, y);
             if (toPrint) {
                 printForPlotting(mutants[4] + "/run0.txt", &gene, t_steps, eps);
@@ -158,9 +167,10 @@ int main(int argc, char** argv)
             if (!her7) continue;
             her7 = f7_mutant(of_her7.period, of_her7.amplitude, of_wt.period);
             if (!her7) continue;
-            temp_rate.psh7 = rateValues[i].psh7;
+            temp_rate.rates_base[RPSH7] = rateValues[i].rates_base[RPSH7];
             
-            temp_rate.psh7 = 0.0, temp_rate.psh13 = 0.0;
+            temp_rate.rates_base[RPSH7] = 0.0, temp_rate.rates_base[RPSH13] = 0.0;
+            reset_rate(temp_rate);
             her713 = run_mutant(&gene, t_steps, eps, temp_rate, of_her713, true, max_prop, x, y);
             if (toPrint) {
                 printForPlotting(mutants[5] + "/run0.txt", &gene, t_steps, eps);
@@ -168,8 +178,8 @@ int main(int argc, char** argv)
 	    	if (!her713) continue;
             her713 = f713_mutant(of_her713.period, of_her713.amplitude, of_wt.period);
             if (!her713) continue;
-            temp_rate.psh7 = rateValues[i].psh7;
-            temp_rate.psh13 = rateValues[i].psh13;
+            temp_rate.rates_base[RPSH7] = rateValues[i].rates_base[RPSH7];
+            temp_rate.rates_base[RPSH13] = rateValues[i].rates_base[RPSH13];
 
             /*
              If the paramater set created oscillatory behavior in wild type and all the mutant conditions were satisfied:
@@ -188,14 +198,14 @@ int main(int argc, char** argv)
                 oft << of_her713.period << "," << of_her713.amplitude << "," << of_her713.peaktotrough1 << ",";
             }
             
-            allpassed<<temp_rate.psh1<<","<<temp_rate.psh7<<","<<temp_rate.psh13<<","<<temp_rate.psd<<","<<temp_rate.pdh1<<","<<temp_rate.pdh7<<",";
-	    	allpassed<<temp_rate.pdh13<<","<<temp_rate.pdd<<","<<temp_rate.msh1<<","<<temp_rate.msh7<<","<<temp_rate.msh13<<","<<temp_rate.msd<<",";
-	    	allpassed<<temp_rate.mdh1<<","<<temp_rate.mdh7<<","<<temp_rate.mdh13<<","<<temp_rate.mdd<<"," <<temp_rate.ddgh1h1 << "," << temp_rate.ddgh1h7 << ",";
-	    	allpassed<<temp_rate.ddgh1h13<<","<<temp_rate.ddgh7h7<<","<<temp_rate.ddgh7h13<<","<<temp_rate.ddgh13h13<<",";
-	    	allpassed<<temp_rate.delaymh1<<","<<temp_rate.delaymh7<<","<<temp_rate.delaymh13<<","<<temp_rate.delaymd<<","<<temp_rate.delayph1<<",";
-	    	allpassed<<temp_rate.delayph7<<","<<temp_rate.delayph13<<","<<temp_rate.delaypd<<","<<temp_rate.dah1h1<<","<<temp_rate.ddh1h1<<","<<temp_rate.dah1h7<<",";
-	    	allpassed<<temp_rate.ddh1h7<<","<<temp_rate.dah1h13<<","<<temp_rate.ddh1h13<<","<<temp_rate.dah7h7<<","<<temp_rate.ddh7h7<<","<<temp_rate.dah7h13<<",";
-	    	allpassed<<temp_rate.ddh7h13<<","<<temp_rate.dah13h13<<","<<temp_rate.ddh13h13<<","<<temp_rate.critph1h1 << "," << temp_rate.critph7h13 <<","<<temp_rate.critpd<<endl;
+            allpassed<<temp_rate.rates_base[RPSH1]<<","<<temp_rate.rates_base[RPSH7]<<","<<temp_rate.rates_base[RPSH13]<<","<<temp_rate.rates_base[RPSDELTA]<<","<<temp_rate.rates_base[RPDH1]<<","<<temp_rate.rates_base[RPDH7]<<",";
+	    	allpassed<<temp_rate.rates_base[RPDH13]<<","<<temp_rate.rates_base[RPDDELTA]<<","<<temp_rate.rates_base[RMSH1]<<","<<temp_rate.rates_base[RMSH7]<<","<<temp_rate.rates_base[RMSH13]<<","<<temp_rate.rates_base[RMSDELTA]<<",";
+	    	allpassed<<temp_rate.rates_base[RMDH1]<<","<<temp_rate.rates_base[RMDH7]<<","<<temp_rate.rates_base[RMDH13]<<","<<temp_rate.rates_base[RMDDELTA]<<"," <<temp_rate.rates_base[RDDGH1H1] << "," << temp_rate.rates_base[RDDGH1H7] << ",";
+	    	allpassed<<temp_rate.rates_base[RDDGH1H13]<<","<<temp_rate.rates_base[RDDGH7H7]<<","<<temp_rate.rates_base[RDDGH7H13]<<","<<temp_rate.rates_base[RDDGH13H13]<<",";
+	    	allpassed<<temp_rate.rates_base[RDELAYMH1]<<","<<temp_rate.rates_base[RDELAYMH7]<<","<<temp_rate.rates_base[RDELAYMH13]<<","<<temp_rate.rates_base[RDELAYMDELTA]<<","<<temp_rate.rates_base[RDELAYPH1]<<",";
+	    	allpassed<<temp_rate.rates_base[RDELAYPH7]<<","<<temp_rate.rates_base[RDELAYPH13]<<","<<temp_rate.rates_base[RDELAYPDELTA]<<","<<temp_rate.rates_base[RDAH1H1]<<","<<temp_rate.rates_base[RDDIH1H1]<<","<<temp_rate.rates_base[RDAH1H7]<<",";
+	    	allpassed<<temp_rate.rates_base[RDDIH1H7]<<","<<temp_rate.rates_base[RDAH1H13]<<","<<temp_rate.rates_base[RDDIH1H13]<<","<<temp_rate.rates_base[RDAH7H7]<<","<<temp_rate.rates_base[RDDIH7H7]<<","<<temp_rate.rates_base[RDAH7H13]<<",";
+	    	allpassed<<temp_rate.rates_base[RDDIH7H13]<<","<<temp_rate.rates_base[RDAH13H13]<<","<<temp_rate.rates_base[RDDIH13H13]<<","<<temp_rate.rates_base[RCRITPH1H1] << "," << temp_rate.rates_base[RCRITPH7H13] <<","<<temp_rate.rates_base[RCRITPDELTA]<<endl;
 	    }
         
         cerr << terminal_blue << "Done with " << terminal_reset << STEP << " parameter sets." << endl;
