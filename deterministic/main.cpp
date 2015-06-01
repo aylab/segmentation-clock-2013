@@ -88,7 +88,6 @@ int main(int argc, char** argv)
     // Iterate through every paramater set
     for (int p = 0; p < PARS; p += CHUNK_SIZE) {
         int STEP = (PARS - p > CHUNK_SIZE ? CHUNK_SIZE : PARS - p);
-        cout << STEP << endl;
         srand(seed);
         store_values(input_file, buffer, index, rateValues, STEP, seed, gradients); // Read the parameter sets from the buffer
         glevels gene(minutes / eps, x * y); // Create the structure that contains the 2D arrays which hold the gene levels

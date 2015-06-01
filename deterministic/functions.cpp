@@ -124,7 +124,6 @@ void print_rate(rates *rs){
 void update_rate(rates *rs, int step){
     for (int i = 0; i < NUM_RATES; i++){
         if (rs->has_gradient[i]){
-            cout << "Update" << endl;
             rs->curr_rates[i] = rs->rates_base[i]*rs->factors_gradient[i][step];
         }
     }
@@ -433,9 +432,20 @@ bool model(double eps, int nfinal, glevels *g, rates *r, double max_prop, int co
     int cells = rows * columns;
     int last_step = 1; //last step when we recalculate the rates based on gradient factors
     int step_size = nfinal/50; //the distance between 2 points we recalculate the rates
+    update_rate(r, 0);
     for (int n = 1; n < nfinal; n++) {
         if ((n-last_step) >= step_size){
-            update_rate(r, last_step/step_size + 1);
+            /*
+            cout << last_step/step_size << endl;
+            cout << "RPDH1" << endl;
+            cout << r->curr_rates[RPDH1] << endl;
+            cout << "RMDH13" << endl;
+            cout << r->factors_gradient[RMDH13][last_step/step_size] << endl;
+            cout << r->curr_rates[RMDH13] << endl;
+            cout << "RPSH1" << endl;
+            cout << r->curr_rates[RPSH1] << endl;
+            */
+            update_rate(r, last_step/step_size + 1);            
             last_step = n;
         }
         for (int i = 0; i < cells; i++) {

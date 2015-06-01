@@ -1,0 +1,2 @@
+set,per wt,amp wt,peak to trough wt,per delta,amp delta,peak to trough delta,per her1,amp her1,peak to trough her1,per her7,amp her7,peak to trough her7,per her13,amp her13,peak to trough her13,per her713,amp her713,peak to trough her713
+0,31.09,115.129,47.583,33.6,88.2515,58.017,31.07,116.654,49.4743,31.37,134.407,10.4793,32.34,120.195,27.4891,32.32,122.446,35.0694,
