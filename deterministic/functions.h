@@ -104,23 +104,24 @@ struct data{
     bool w;
 };
 
-bool checkPropensities(glevels*, rates, int, double);
+bool not_EOL (char c);
+bool checkPropensities(glevels*, rates*, int, double);
 void printForPlotting(string, glevels*, int, double);
 void test_print(rates);
-void store_values(char*, char*, int&, rates*, const int, int);
+void store_values(char*, char*, int&, rates**, const int, int, char*);
 void clear_levels(glevels*, int, int);
-bool model(double, int, glevels*, rates, double);
+bool model(double, int, glevels*, rates*, double);
 void ofeatures(glevels*, double, int, bool, data&);
 void parseLine(char*, int[], int&);
 void skipFirstLine(char*, int&);
 void usage(const char*);
 void licensing();
-bool run_mutant(glevels*, int, double, rates, data&, bool, double, int, int);
-void fill_rates(rates& rs, char *buffer, int *index);
-void fill_gradients (rates& rs, char* gradients);
+bool run_mutant(glevels*, int, double, rates*, data&, bool, double, int, int);
+void fill_rates(rates *rs, char *buffer, int *index);
+void fill_gradients (rates *rs, char* gradients);
 void print_rate(rates *rs);
 void update_rate(rates& rs, int step);
-void reset_rate(rates& rs);
+void reset_rate(rates *rs);
 
 inline void clear_data(data &d){
     d.period = 0.0;
@@ -184,6 +185,22 @@ inline bool f713_mutant(double h713period, double h713amplitude, double wperiod)
 
 inline bool fd_mutant(double dperiod, double damplitude, double wperiod){
     return (((dperiod / wperiod) > 1.04) && ((dperiod / wperiod) < 1.30));
+}
+
+/* interpolate linearly interpolates the value at the given location between two given points
+    parameters:
+        x: the location at which to interpolate the value
+        x0: the left location
+        x1: the right location
+        y0: the left location's value
+        y1: the right location's value
+    returns: the interpolated value
+    notes:
+        x0 and x1 are integers because this function is used to interpolate in a cell tissue.
+    todo:
+*/
+inline double interpolate (double x, int x0, int x1, double y0, double y1) {
+    return y0 + (y1 - y0) * ((x - x0) / (x1 - x0));
 }
 
 #endif 

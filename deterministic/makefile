@@ -1,6 +1,6 @@
 CC = g++
 CFLAGS = -Wall -g
-TARGET = test
+TARGET = deterministic
 OBJS = main.o input_functions.o functions.o output_functions.o
 
 $(TARGET): $(OBJS)

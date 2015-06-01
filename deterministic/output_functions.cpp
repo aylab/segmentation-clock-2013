@@ -121,11 +121,9 @@ void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_name
 
     create_directory(output_path);    
 
-    char output_file[path_length + 30]; // the buffer containing the output file names
-    char ofeat_file[path_length + 30]; // the buffer containing the ofeat file names
+    char output_file[path_length + 30]; // the buffer containing the output file names    
     char output_name[] = "det-passed.csv";
     create_file_name(output_file, output_path, path_length, output_name);
-    create_file_name(ofeat_file, output_path, path_length, ofeat_name);      
 
     create_file(output_file, allpassed);
     
@@ -134,6 +132,8 @@ void create_output(char *output_path, bool toPrint, bool ofeat, char *ofeat_name
     }
     
     if (ofeat) {
+        char ofeat_file[path_length + 30]; // the buffer containing the ofeat file names
+        create_file_name(ofeat_file, output_path, path_length, ofeat_name);
         char ofeat[] = "set,per wt,amp wt,peak to trough wt,per delta,amp delta,peak to trough delta,per her1,amp her1,peak to trough her1,per her7,amp her7,peak to trough her7,per her13,amp her13,peak to trough her13,per her713,amp her713,peak to trough her713";
         create_ofeat(ofeat, ofeat_file, oft);
     }

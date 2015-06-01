@@ -35,14 +35,26 @@ extern char* terminal_blue;
 extern char* terminal_red;
 extern char* terminal_reset;
 
-void fill_rates(rates& rs, double items[]){
+/* not_EOL returns whether or not a given character is the end of a line or file (i.e. '\n' or '\0', respectively)
+    parameters:
+        c: the character to check
+    returns: true if c is the end of a line or file, false otherwise
+    notes:
+        When reading input file strings, use this instead of a straight newline check to avoid EOF (end of file) issues.
+    todo:
+*/
+bool not_EOL (char c) {
+    return c != '\n' && c != '\0';
+}
+
+void fill_rates(rates *rs, double items[]){
     for (int i = 0; i < NUM_RATES; i++){
-        rs.rates_base[i] = items[i];
-        rs.curr_rates[i] = items[i];
+        rs->rates_base[i] = items[i];
+        rs->curr_rates[i] = items[i];
     }
 }
 
-void fill_gradients (rates& rs, char* gradients) {
+void fill_gradients (rates *rs, char* gradients) {
     if (gradients != NULL) {
         static const char* usage_message = "There was an error reading the given gradients file.";
         int con; // The index of the concentration
@@ -59,8 +71,8 @@ void fill_gradients (rates& rs, char* gradients) {
             if (con < 0 || con > NUM_RATES) {
                 usage("The given gradients file includes rate indices outside of the valid range. Please adjust the gradients file or add the appropriate rates by editing the macros file and recompiling.");
             }
-            rs.using_gradients = true; // Mark that at least one concentration has a gradient
-            rs.has_gradient[con] = true; // Mark that this concentration has a gradient
+            rs->using_gradients = true; // Mark that at least one concentration has a gradient
+            rs->has_gradient[con] = true; // Mark that this concentration has a gradient
             
             // Read every (position factor) pair
             while (gradients[i++] != ' ') {} // Skip past the concentration index
@@ -69,7 +81,7 @@ void fill_gradients (rates& rs, char* gradients) {
                 if (sscanf(gradients + i, "(%d %lf)", &step, &factor) != 2) {
                     usage(usage_message);
                 }
-                if (step < 0 || step >= rs.steps) {
+                if (step < 0 || step >= rs->steps) {
                     usage("The given gradients file includes positions outside of the given simulation width. Please adjust the gradients file or increase the width of the simulation using -x or --total-width.");
                 }
                 if (factor < 0) {
@@ -81,16 +93,16 @@ void fill_gradients (rates& rs, char* gradients) {
                 start_step = last_step;
                 last_step = step;
                 for (int j = start_step + 1; j < step; j++) {
-                    rs.factors_gradient[con][j] = interpolate(j, start_step, step, rs.factors_gradient[con][start_step], factor);
+                    rs->factors_gradient[con][j] = interpolate(j, start_step, step, rs->factors_gradient[con][start_step], factor);
                 }
-                rs.factors_gradient[con][step] = factor;
+                rs->factors_gradient[con][step] = factor;
                 while (gradients[i++] != ')') {} // Skip past the end of the pair
                 while (gradients[i] == ' ') {i++;} // Skip any whitespace before the next pair
             }
             
             // Apply the last gradient factor to the rest of the steps
-            for (int j = step + 1; j < rs.steps; j++) {
-                rs.factors_gradient[con][j] = rs.factors_gradient[con][step];
+            for (int j = step + 1; j < rs->steps; j++) {
+                rs->factors_gradient[con][j] = rs->factors_gradient[con][step];
             }
             i++;
         }
@@ -100,7 +112,7 @@ void fill_gradients (rates& rs, char* gradients) {
 //Print rates structure for testing purpose
 void print_rate(rates *rs){ 
     for (int i = 0; i < NUM_RATES; i++){
-        cout << "Rate " << i << ": " << rs->rates_base[i] << endl;      
+        cout << "Rate " << i << ": " << rs->curr_rates[i] << endl;      
         if (rs->has_gradient[i]){
             for (int j = 0; j < rs->steps; j++){
                 cout << "Step " << j << ": " << rs->factors_gradient[i][j] << endl;
@@ -109,17 +121,18 @@ void print_rate(rates *rs){
     }
 }
 
-void update_rate(rates& rs, int step){
+void update_rate(rates *rs, int step){
     for (int i = 0; i < NUM_RATES; i++){
-        if (rs.has_gradient[i]){
-            rs.curr_rates[i] = rs.rates_base[i]*rs.factors_gradient[i][step];
+        if (rs->has_gradient[i]){
+            cout << "Update" << endl;
+            rs->curr_rates[i] = rs->rates_base[i]*rs->factors_gradient[i][step];
         }
     }
 }
 
-void reset_rate(rates& rs){
+void reset_rate(rates *rs){
     for (int i = 0; i < NUM_RATES; i++){
-        rs.curr_rates[i] = rs.rates_base[i];
+        rs->curr_rates[i] = rs->rates_base[i];
     }
 }
 
@@ -181,45 +194,45 @@ void licensing () {
 }
 
 
-bool checkPropensities(glevels *x, rates pars, int sn, double CUTOFF) {
+bool checkPropensities(glevels *x, rates *pars, int sn, double CUTOFF) {
     /*
      Checks that the propensity functions which could be used in a stochastic simulation do not go over the set CUTOFF.
      Returns true if all propensities are < CUTOFF and false otherwise.
      */
-    if (pars.curr_rates[RPSH1]       * x->mh1[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RPDH1]       * x->ph1[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RDAH1H1]     * x->ph1[0][sn] * (x->ph1[0][sn] - 1) / 2 > CUTOFF) return false;
-    if (pars.curr_rates[RDDIH1H1]    * x->ph11[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RDAH1H7]     * x->ph1[0][sn] * x->ph7[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RDDIH1H7]    * x->ph17[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RDAH1H13]    * x->ph1[0][sn] * x->ph13[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RDDIH1H13]   * x->ph113[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RPSH7]       * x->mh7[0][sn] > CUTOFF) return false;                                 
-    if (pars.curr_rates[RPDH7]       * x->ph7[0][sn] > CUTOFF) return false;                                 
-    if (pars.curr_rates[RDAH7H7]     * x->ph7[0][sn] * (x->ph7[0][sn] - 1) / 2 > CUTOFF) return false;      
-    if (pars.curr_rates[RDDIH7H7]    * x->ph77[0][sn] > CUTOFF) return false;                               
-    if (pars.curr_rates[RDAH7H13]    * x->ph7[0][sn]  * x->ph13[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RDDIH7H13]   * x->ph713[0][sn] > CUTOFF) return false;                              
-    if (pars.curr_rates[RPSH13]      * x->mh13[0][sn] > CUTOFF) return false;                               
-    if (pars.curr_rates[RPDH13]      * x->ph13[0][sn] > CUTOFF) return false;                               
-    if (pars.curr_rates[RDAH13H13]   * x->ph13[0][sn] * (x->ph13[0][sn] - 1) / 2  > CUTOFF) return false;   
-    if (pars.curr_rates[RDDIH13H13]  * x->ph1313[0][sn] > CUTOFF) return false;                             
-    if (pars.curr_rates[RDDGH1H1]    * x->ph11[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RDDGH1H7]    * x->ph17[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RDDGH1H13]   * x->ph113[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RDDGH7H7]    * x->ph77[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RDDGH7H13]   * x->ph713[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RDDGH13H13]  * x->ph1313[0][sn] > CUTOFF) return false;
-    if (pars.curr_rates[RPSDELTA]    * x->md[0][sn] > CUTOFF) return false;                                                         
-    if (pars.curr_rates[RPDDELTA]    * x->pd[0][sn] > CUTOFF) return false;                                                         
-    if (fh1(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars.curr_rates[RMSH1], pars.curr_rates[RCRITPH1H1], pars.curr_rates[RCRITPH7H13], pars.curr_rates[RCRITPDELTA]) > CUTOFF) return 0; 
-    if (pars.curr_rates[RMDH1]       * x->mh1[0][sn] > CUTOFF) return false;                                                            
-    if (fh7(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars.curr_rates[RMSH7], pars.curr_rates[RCRITPH1H1], pars.curr_rates[RCRITPH7H13], pars.curr_rates[RCRITPDELTA]) > CUTOFF) return 0;
-    if (pars.curr_rates[RMDH7]       * x->mh7[0][sn] > CUTOFF) return false;                                                        
-    if (pars.curr_rates[RPSH13] > CUTOFF) return 0;                                                                                 
-    if (pars.curr_rates[RMDH13]      * x->mh13[0][sn] > CUTOFF) return false;                                                           
-    if (fd(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars.curr_rates[RMSDELTA], pars.curr_rates[RCRITPH1H1], pars.curr_rates[RCRITPH7H13], pars.curr_rates[RCRITPDELTA]) > CUTOFF) return 0;   
-    if (pars.curr_rates[RMDDELTA]    * x->md[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RPSH1]       * x->mh1[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RPDH1]       * x->ph1[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RDAH1H1]     * x->ph1[0][sn] * (x->ph1[0][sn] - 1) / 2 > CUTOFF) return false;
+    if (pars->curr_rates[RDDIH1H1]    * x->ph11[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RDAH1H7]     * x->ph1[0][sn] * x->ph7[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RDDIH1H7]    * x->ph17[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RDAH1H13]    * x->ph1[0][sn] * x->ph13[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RDDIH1H13]   * x->ph113[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RPSH7]       * x->mh7[0][sn] > CUTOFF) return false;                                 
+    if (pars->curr_rates[RPDH7]       * x->ph7[0][sn] > CUTOFF) return false;                                 
+    if (pars->curr_rates[RDAH7H7]     * x->ph7[0][sn] * (x->ph7[0][sn] - 1) / 2 > CUTOFF) return false;      
+    if (pars->curr_rates[RDDIH7H7]    * x->ph77[0][sn] > CUTOFF) return false;                               
+    if (pars->curr_rates[RDAH7H13]    * x->ph7[0][sn]  * x->ph13[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RDDIH7H13]   * x->ph713[0][sn] > CUTOFF) return false;                              
+    if (pars->curr_rates[RPSH13]      * x->mh13[0][sn] > CUTOFF) return false;                               
+    if (pars->curr_rates[RPDH13]      * x->ph13[0][sn] > CUTOFF) return false;                               
+    if (pars->curr_rates[RDAH13H13]   * x->ph13[0][sn] * (x->ph13[0][sn] - 1) / 2  > CUTOFF) return false;   
+    if (pars->curr_rates[RDDIH13H13]  * x->ph1313[0][sn] > CUTOFF) return false;                             
+    if (pars->curr_rates[RDDGH1H1]    * x->ph11[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RDDGH1H7]    * x->ph17[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RDDGH1H13]   * x->ph113[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RDDGH7H7]    * x->ph77[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RDDGH7H13]   * x->ph713[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RDDGH13H13]  * x->ph1313[0][sn] > CUTOFF) return false;
+    if (pars->curr_rates[RPSDELTA]    * x->md[0][sn] > CUTOFF) return false;                                                         
+    if (pars->curr_rates[RPDDELTA]    * x->pd[0][sn] > CUTOFF) return false;                                                         
+    if (fh1(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars->curr_rates[RMSH1], pars->curr_rates[RCRITPH1H1], pars->curr_rates[RCRITPH7H13], pars->curr_rates[RCRITPDELTA]) > CUTOFF) return 0; 
+    if (pars->curr_rates[RMDH1]       * x->mh1[0][sn] > CUTOFF) return false;                                                            
+    if (fh7(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars->curr_rates[RMSH7], pars->curr_rates[RCRITPH1H1], pars->curr_rates[RCRITPH7H13], pars->curr_rates[RCRITPDELTA]) > CUTOFF) return 0;
+    if (pars->curr_rates[RMDH7]       * x->mh7[0][sn] > CUTOFF) return false;                                                        
+    if (pars->curr_rates[RPSH13] > CUTOFF) return 0;                                                                                 
+    if (pars->curr_rates[RMDH13]      * x->mh13[0][sn] > CUTOFF) return false;                                                           
+    if (fd(x->ph11[0][sn], x->ph713[0][sn], x->pd[1][sn], pars->curr_rates[RMSDELTA], pars->curr_rates[RCRITPH1H1], pars->curr_rates[RCRITPH7H13], pars->curr_rates[RCRITPDELTA]) > CUTOFF) return 0;   
+    if (pars->curr_rates[RMDDELTA]    * x->md[0][sn] > CUTOFF) return false;
     return true;
 }
 
@@ -343,7 +356,7 @@ void generate_set(double items[])
     items[44] = make_random(critpd);
 }
 
-void store_values(char* input_file, char* buffer, int &index, rates *rateValues, const int STEP, int seed, char *gradients){
+void store_values(char* input_file, char* buffer, int &index, rates **rateValues, const int STEP, int seed, char *gradients){
     /*
      Stores sets of parameters into the rateValues structure.
      The sets are either taken from the input file given by the user, or generated according to a random seed.
@@ -365,7 +378,7 @@ void store_values(char* input_file, char* buffer, int &index, rates *rateValues,
         if (gradients != NULL){
             fill_gradients(rateValues[i], gradients);
         }
-    }
+    }    
 }
 
 void clear_levels(glevels *old, int nfinal, int cells){
@@ -392,7 +405,7 @@ int fix(int x, int end)
     return x;
 }
 
-bool model(double eps, int nfinal, glevels *g, rates r, double max_prop, int columns, int rows){
+bool model(double eps, int nfinal, glevels *g, rates *r, double max_prop, int columns, int rows){
     /*
      Runs the deterministic simulation of the model.
      For each time step:
@@ -404,13 +417,13 @@ bool model(double eps, int nfinal, glevels *g, rates r, double max_prop, int col
     
     // Convert the time delay values to integers, because the deterministic simulation uses discrete time points.
     int ndelaymd, ndelayph1, ndelayph7, ndelayph13, ndelaypd, ndelaymh1, ndelaymh7; 
-    ndelayph1 = int(r.curr_rates[RDELAYPH1]/eps);
-    ndelayph7 = int(r.curr_rates[RDELAYPH7]/eps);
-    ndelayph13 = int(r.curr_rates[RDELAYPH13]/eps);
-    ndelaypd = int(r.curr_rates[RDELAYPDELTA]/eps);
-    ndelaymd = int(r.curr_rates[RDELAYMDELTA]/eps);
-    ndelaymh1 = int(r.curr_rates[RDELAYMH1]/eps);
-    ndelaymh7 = int(r.curr_rates[RDELAYMH7]/eps);
+    ndelayph1 = int(r->curr_rates[RDELAYPH1]/eps);
+    ndelayph7 = int(r->curr_rates[RDELAYPH7]/eps);
+    ndelayph13 = int(r->curr_rates[RDELAYPH13]/eps);
+    ndelaypd = int(r->curr_rates[RDELAYPDELTA]/eps);
+    ndelaymd = int(r->curr_rates[RDELAYMDELTA]/eps);
+    ndelaymh1 = int(r->curr_rates[RDELAYMH1]/eps);
+    ndelaymh7 = int(r->curr_rates[RDELAYMH7]/eps);
 
     int nmh1, nph1; 
     int nmh7, nph7;
@@ -422,7 +435,7 @@ bool model(double eps, int nfinal, glevels *g, rates r, double max_prop, int col
     int step_size = nfinal/50; //the distance between 2 points we recalculate the rates
     for (int n = 1; n < nfinal; n++) {
         if ((n-last_step) >= step_size){
-            update_rate(rs, last_step/step_size + 1);
+            update_rate(r, last_step/step_size + 1);
             last_step = n;
         }
         for (int i = 0; i < cells; i++) {
@@ -432,23 +445,23 @@ bool model(double eps, int nfinal, glevels *g, rates r, double max_prop, int col
             nmd = ndelaymd, npd = ndelaypd;
     
             //Protein synthesis
-            g->ph1[i][n] = g->ph1[i][n - 1] + eps * ((n > nph1 ? r.curr_rates[RPSH1] * g->mh1[i][n - nph1]:0)-r.curr_rates[RPDH1]*g->ph1[i][n - 1]-2*r.curr_rates[RDAH1H1]*g->ph1[i][n - 1]*g->ph1[i][n - 1]+2*r.curr_rates[RDDIH1H1]*g->ph11[i][n - 1]-r.curr_rates[RDAH1H7]*g->ph1[i][n - 1]*g->ph7[i][n - 1]+r.curr_rates[RDDIH1H7]*g->ph17[i][n - 1]-r.curr_rates[RDAH1H13]*g->ph1[i][n - 1]*g->ph13[i][n - 1]+r.curr_rates[RDDIH1H13]*g->ph113[i][n - 1]);
-            g->ph7[i][n] = g->ph7[i][n - 1] + eps * ((n > nph7 ? r.curr_rates[RPSH7]*g->mh7[i][n - nph7]:0)-r.curr_rates[RPDH7]*g->ph7[i][n - 1]-2*r.curr_rates[RDAH7H7]*g->ph7[i][n - 1]*g->ph7[i][n - 1]+2*r.curr_rates[RDDIH7H7]*g->ph77[i][n - 1]-r.curr_rates[RDAH1H7]*g->ph1[i][n - 1]*g->ph7[i][n - 1]+r.curr_rates[RDDIH1H7]*g->ph17[i][n - 1]-r.curr_rates[RDAH7H13]*g->ph7[i][n - 1]*g->ph13[i][n - 1]+r.curr_rates[RDDIH7H13]*g->ph713[i][n - 1]);
-            g->ph13[i][n] = g->ph13[i][n - 1] + eps * ((n > nph13 ? r.curr_rates[RPSH13]*g->mh13[i][n - nph13]:0)-r.curr_rates[RPDH13]*g->ph13[i][n - 1]-2*r.curr_rates[RDAH13H13]*g->ph13[i][n - 1]*g->ph13[i][n - 1]+2*r.curr_rates[RDDIH13H13]*g->ph1313[i][n - 1]-r.curr_rates[RDAH1H13]*g->ph1[i][n - 1]*g->ph13[i][n - 1]+r.curr_rates[RDDIH1H13]*g->ph113[i][n - 1]-r.curr_rates[RDAH7H13]*g->ph7[i][n - 1]*g->ph13[i][n - 1]+r.curr_rates[RDDIH7H13]*g->ph713[i][n - 1]);
+            g->ph1[i][n] = g->ph1[i][n - 1] + eps * ((n > nph1 ? r->curr_rates[RPSH1] * g->mh1[i][n - nph1]:0)-r->curr_rates[RPDH1]*g->ph1[i][n - 1]-2*r->curr_rates[RDAH1H1]*g->ph1[i][n - 1]*g->ph1[i][n - 1]+2*r->curr_rates[RDDIH1H1]*g->ph11[i][n - 1]-r->curr_rates[RDAH1H7]*g->ph1[i][n - 1]*g->ph7[i][n - 1]+r->curr_rates[RDDIH1H7]*g->ph17[i][n - 1]-r->curr_rates[RDAH1H13]*g->ph1[i][n - 1]*g->ph13[i][n - 1]+r->curr_rates[RDDIH1H13]*g->ph113[i][n - 1]);
+            g->ph7[i][n] = g->ph7[i][n - 1] + eps * ((n > nph7 ? r->curr_rates[RPSH7]*g->mh7[i][n - nph7]:0)-r->curr_rates[RPDH7]*g->ph7[i][n - 1]-2*r->curr_rates[RDAH7H7]*g->ph7[i][n - 1]*g->ph7[i][n - 1]+2*r->curr_rates[RDDIH7H7]*g->ph77[i][n - 1]-r->curr_rates[RDAH1H7]*g->ph1[i][n - 1]*g->ph7[i][n - 1]+r->curr_rates[RDDIH1H7]*g->ph17[i][n - 1]-r->curr_rates[RDAH7H13]*g->ph7[i][n - 1]*g->ph13[i][n - 1]+r->curr_rates[RDDIH7H13]*g->ph713[i][n - 1]);
+            g->ph13[i][n] = g->ph13[i][n - 1] + eps * ((n > nph13 ? r->curr_rates[RPSH13]*g->mh13[i][n - nph13]:0)-r->curr_rates[RPDH13]*g->ph13[i][n - 1]-2*r->curr_rates[RDAH13H13]*g->ph13[i][n - 1]*g->ph13[i][n - 1]+2*r->curr_rates[RDDIH13H13]*g->ph1313[i][n - 1]-r->curr_rates[RDAH1H13]*g->ph1[i][n - 1]*g->ph13[i][n - 1]+r->curr_rates[RDDIH1H13]*g->ph113[i][n - 1]-r->curr_rates[RDAH7H13]*g->ph7[i][n - 1]*g->ph13[i][n - 1]+r->curr_rates[RDDIH7H13]*g->ph713[i][n - 1]);
             if (g->ph1[i][n] < 0 || g->ph7[i][n] < 0 || g->ph13[i][n] < 0) {
                 return false;
             }
 
             //Dimer proteins
-            g->ph11[i][n] = g->ph11[i][n - 1] + eps * (r.curr_rates[RDAH1H1]*g->ph1[i][n - 1]*g->ph1[i][n - 1]-r.curr_rates[RDDIH1H1]*g->ph11[i][n - 1]-r.curr_rates[RDDGH1H1]*g->ph11[i][n - 1]);
-            g->ph17[i][n] = g->ph17[i][n - 1] + eps * (r.curr_rates[RDAH1H7]*g->ph1[i][n - 1]*g->ph7[i][n - 1]-r.curr_rates[RDDIH1H7]*g->ph17[i][n - 1]-r.curr_rates[RDDGH1H7]*g->ph17[i][n - 1]);
-            g->ph113[i][n] = g->ph113[i][n - 1] + eps * (r.curr_rates[RDAH1H13]*g->ph1[i][n - 1]*g->ph13[i][n - 1]-r.curr_rates[RDDIH1H13]*g->ph113[i][n - 1]-r.curr_rates[RDDGH1H13]*g->ph113[i][n - 1]);
-            g->ph77[i][n] = g->ph77[i][n - 1] + eps * (r.curr_rates[RDAH7H7]*g->ph7[i][n - 1]*g->ph7[i][n - 1]-r.curr_rates[RDDIH7H7]*g->ph77[i][n - 1]-r.curr_rates[RDDGH7H7]*g->ph77[i][n - 1]);
-            g->ph713[i][n] = g->ph713[i][n - 1] + eps * (r.curr_rates[RDAH7H13]*g->ph7[i][n - 1]*g->ph13[i][n - 1]-r.curr_rates[RDDIH7H13]*g->ph713[i][n - 1]-r.curr_rates[RDDGH7H13]*g->ph713[i][n - 1]);
-            g->ph1313[i][n] = g->ph1313[i][n - 1] + eps * (r.curr_rates[RDAH13H13]*g->ph13[i][n - 1]*g->ph13[i][n - 1]-r.curr_rates[RDDIH13H13]*g->ph1313[i][n - 1]-r.curr_rates[RDDGH13H13]*g->ph1313[i][n - 1]);
+            g->ph11[i][n] = g->ph11[i][n - 1] + eps * (r->curr_rates[RDAH1H1]*g->ph1[i][n - 1]*g->ph1[i][n - 1]-r->curr_rates[RDDIH1H1]*g->ph11[i][n - 1]-r->curr_rates[RDDGH1H1]*g->ph11[i][n - 1]);
+            g->ph17[i][n] = g->ph17[i][n - 1] + eps * (r->curr_rates[RDAH1H7]*g->ph1[i][n - 1]*g->ph7[i][n - 1]-r->curr_rates[RDDIH1H7]*g->ph17[i][n - 1]-r->curr_rates[RDDGH1H7]*g->ph17[i][n - 1]);
+            g->ph113[i][n] = g->ph113[i][n - 1] + eps * (r->curr_rates[RDAH1H13]*g->ph1[i][n - 1]*g->ph13[i][n - 1]-r->curr_rates[RDDIH1H13]*g->ph113[i][n - 1]-r->curr_rates[RDDGH1H13]*g->ph113[i][n - 1]);
+            g->ph77[i][n] = g->ph77[i][n - 1] + eps * (r->curr_rates[RDAH7H7]*g->ph7[i][n - 1]*g->ph7[i][n - 1]-r->curr_rates[RDDIH7H7]*g->ph77[i][n - 1]-r->curr_rates[RDDGH7H7]*g->ph77[i][n - 1]);
+            g->ph713[i][n] = g->ph713[i][n - 1] + eps * (r->curr_rates[RDAH7H13]*g->ph7[i][n - 1]*g->ph13[i][n - 1]-r->curr_rates[RDDIH7H13]*g->ph713[i][n - 1]-r->curr_rates[RDDGH7H13]*g->ph713[i][n - 1]);
+            g->ph1313[i][n] = g->ph1313[i][n - 1] + eps * (r->curr_rates[RDAH13H13]*g->ph13[i][n - 1]*g->ph13[i][n - 1]-r->curr_rates[RDDIH13H13]*g->ph1313[i][n - 1]-r->curr_rates[RDDGH13H13]*g->ph1313[i][n - 1]);
                         
             // Delta Protein
-            g->pd[i][n] = g->pd[i][n - 1] + eps*((n > npd ? r.curr_rates[RPSDELTA]*g->md[i][n-npd]:0)-r.curr_rates[RPDDELTA]*g->pd[i][n - 1]);
+            g->pd[i][n] = g->pd[i][n - 1] + eps*((n > npd ? r->curr_rates[RPSDELTA]*g->md[i][n-npd]:0)-r->curr_rates[RPDDELTA]*g->pd[i][n - 1]);
             
             if (g->ph11[i][n] < 0 || g->ph17[i][n] < 0 || g->ph113[i][n] < 0 || g->ph77[i][n] < 0 || g->ph713[i][n] < 0 || g->ph1313[i][n] < 0 || g->pd[i][n] < 0) {
                 return false;
@@ -536,10 +549,10 @@ bool model(double eps, int nfinal, glevels *g, rates r, double max_prop, int col
             }
             
             // mRNA Synthesis
-            g->mh1[i][n] = g->mh1[i][n - 1] + eps * ((n > nmh1 ? fh1(g->ph11[i][n - nmh1], g->ph713[i][n - nmh1], avgpdh1, r.curr_rates[RMSH1], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]):fh1(0, 0, 0, r.curr_rates[RMSH1], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]))-r.curr_rates[RMDH1]*g->mh1[i][n - 1]);
-            g->mh7[i][n] = g->mh7[i][n - 1] + eps * ((n > nmh7 ? fh7(g->ph11[i][n - nmh7], g->ph713[i][n - nmh7], avgpdh7, r.curr_rates[RMSH7], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]):fh7(0, 0, 0, r.curr_rates[RMSH7], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]))-r.curr_rates[RMDH7]*g->mh7[i][n - 1]);
-            g->mh13[i][n] = g->mh13[i][n - 1] + eps * (r.curr_rates[RMSH13]-r.curr_rates[RMDH13]*g->mh13[i][n - 1]); 
-            g->md[i][n] = g->md[i][n - 1] + eps * ((n > nmd ? fd(g->ph11[i][n - nmd], g->ph713[i][n - nmd], avgpdd, r.curr_rates[RMSDELTA], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]):fd(0, 0, 0, r.curr_rates[RMSDELTA], r.curr_rates[RCRITPH1H1], r.curr_rates[RCRITPH7H13], r.curr_rates[RCRITPDELTA]))-r.curr_rates[RMDDELTA]*g->md[i][n - 1]);
+            g->mh1[i][n] = g->mh1[i][n - 1] + eps * ((n > nmh1 ? fh1(g->ph11[i][n - nmh1], g->ph713[i][n - nmh1], avgpdh1, r->curr_rates[RMSH1], r->curr_rates[RCRITPH1H1], r->curr_rates[RCRITPH7H13], r->curr_rates[RCRITPDELTA]):fh1(0, 0, 0, r->curr_rates[RMSH1], r->curr_rates[RCRITPH1H1], r->curr_rates[RCRITPH7H13], r->curr_rates[RCRITPDELTA]))-r->curr_rates[RMDH1]*g->mh1[i][n - 1]);
+            g->mh7[i][n] = g->mh7[i][n - 1] + eps * ((n > nmh7 ? fh7(g->ph11[i][n - nmh7], g->ph713[i][n - nmh7], avgpdh7, r->curr_rates[RMSH7], r->curr_rates[RCRITPH1H1], r->curr_rates[RCRITPH7H13], r->curr_rates[RCRITPDELTA]):fh7(0, 0, 0, r->curr_rates[RMSH7], r->curr_rates[RCRITPH1H1], r->curr_rates[RCRITPH7H13], r->curr_rates[RCRITPDELTA]))-r->curr_rates[RMDH7]*g->mh7[i][n - 1]);
+            g->mh13[i][n] = g->mh13[i][n - 1] + eps * (r->curr_rates[RMSH13]-r->curr_rates[RMDH13]*g->mh13[i][n - 1]); 
+            g->md[i][n] = g->md[i][n - 1] + eps * ((n > nmd ? fd(g->ph11[i][n - nmd], g->ph713[i][n - nmd], avgpdd, r->curr_rates[RMSDELTA], r->curr_rates[RCRITPH1H1], r->curr_rates[RCRITPH7H13], r->curr_rates[RCRITPDELTA]):fd(0, 0, 0, r->curr_rates[RMSDELTA], r->curr_rates[RCRITPH1H1], r->curr_rates[RCRITPH7H13], r->curr_rates[RCRITPDELTA]))-r->curr_rates[RMDDELTA]*g->md[i][n - 1]);
             if (g->mh1[i][n] < 0 || g->mh7[i][n] < 0 || g-> mh13[i][n] < 0 || g-> md[i][n] < 0) {
                 return false;
             }
@@ -551,7 +564,7 @@ bool model(double eps, int nfinal, glevels *g, rates r, double max_prop, int col
     return true;
 }
 
-bool run_mutant(glevels *g, int t_steps, double eps, rates temp_rate, data &of, bool wild, double max_prop, int x, int y)
+bool run_mutant(glevels *g, int t_steps, double eps, rates *temp_rate, data &of, bool wild, double max_prop, int x, int y)
 {
     /*
      Performs the steps necessary in the simulation and analysis of the wild type or a certain mutant.
@@ -565,7 +578,7 @@ bool run_mutant(glevels *g, int t_steps, double eps, rates temp_rate, data &of, 
     ofeatures(g, eps, t_steps, wild, of); 
     return pass;
 }
-/
+
 void ofeatures(glevels *g, double eps, int nfinal, bool wild, data &d) {
     /*
      Calculates the oscillation features -- period, amplitude and peak to trough
@@ -606,14 +619,14 @@ void ofeatures(glevels *g, double eps, int nfinal, bool wild, data &d) {
             if(g -> mh1[0][m + 1] > g -> mh1[0][m] && g -> mh1[0][m] < g -> mh1[0][m - 1]){
                 mminlast2 = g -> mh1[0][m];
             }
-        
-            // in order to avoid dividing by zero in case a trough is 0, set it to 1
-            if(mminlast2 == 0.0 || mminlast == 0.0) {
-                mminlast2 = 1.0;
-                mminlast = 1.0;
-            }
-            d.peaktotrough2 = mmaxlast2/mminlast2;
         }
+        
+        // in order to avoid dividing by zero in case a trough is 0, set it to 1
+        if(mminlast2 == 0.0 || mminlast == 0.0) {
+            mminlast2 = 1.0;
+            mminlast = 1.0;
+        }
+        d.peaktotrough2 = mmaxlast2/mminlast2;        
     }
     d.period = tmaxlast-tmaxpenult;
     d.amplitude = mmaxlast-mminlast;

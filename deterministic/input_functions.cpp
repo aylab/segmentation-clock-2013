@@ -81,11 +81,11 @@ void readFile(char **buffer, char* input_file)
 }
 
 
-void create_buffer (char *buffer, char *input_file){
+void create_buffer (char **buffer, char *input_file){
     // Read the entire input file into a char array buffer to speed up I/O
     if (input_file != NULL) {
         cout << terminal_blue << "Reading file " << terminal_reset << input_file << " . . . ";
-        readFile(&buffer, input_file);
+        readFile(buffer, input_file);
         cout << terminal_done << endl;
     }
 }
@@ -145,7 +145,7 @@ void checkArgs(int argc, char** argv, char** input_file, char** output_path, cha
                 store_filename(input_file, value);
             } else if (strcmp(option, "-o") == 0 || strcmp(option, "--output") == 0) {
                 store_filename(output_path, value);
-            } else if (strcmp(option, "-g") == 0 || strcmp(option, "--gradients"){
+            } else if (strcmp(option, "-g") == 0 || strcmp(option, "--gradients") == 0){
                 store_filename(gradients_file, value);
             } else if (strcmp(option, "-s") == 0 || strcmp(option, "--seed") == 0) {
                 seed = atof(value);

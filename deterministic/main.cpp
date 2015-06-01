@@ -67,15 +67,17 @@ int main(int argc, char** argv)
     double max_prop = INFINITY; // maximum threshold for propensity functions, default is INFINITY
     bool toPrint = false, ofeat = false; // boolean marking whether or not concentrations should be printed to a text file
     checkArgs(argc, argv, &input_file, &output_path, &gradients_file, &ofeat_file, ofeat, PARS, seed, minutes, eps, max_prop, toPrint, x, y);
-    rates rateValues[CHUNK_SIZE];
+    rates *rateValues[CHUNK_SIZE];
+    for (int j = 0; j < CHUNK_SIZE; j++){
+        rateValues[j] = new rates(50);
+    }
 
     // Read the entire input file into a char array buffer to speed up I/O
-    char *buffer;
+    char *buffer = NULL;
     char *gradients = NULL;
     int index = 0;
-    create_buffer(buffer, input_file);
-    create_buffer(gradients, gradients_file);  
-
+    create_buffer(&buffer, input_file);
+    create_buffer(&gradients, gradients_file);
 
     //Create output files
     string mutants[6] = {"/wt", "/delta", "/her13", "/her1", "/her7", "/her713"};
@@ -86,8 +88,9 @@ int main(int argc, char** argv)
     // Iterate through every paramater set
     for (int p = 0; p < PARS; p += CHUNK_SIZE) {
         int STEP = (PARS - p > CHUNK_SIZE ? CHUNK_SIZE : PARS - p);
+        cout << STEP << endl;
         srand(seed);
-        store_values(input_file, buffer, index, rateValues, STEP, seed); // Read the parameter sets from the buffer
+        store_values(input_file, buffer, index, rateValues, STEP, seed, gradients); // Read the parameter sets from the buffer
         glevels gene(minutes / eps, x * y); // Create the structure that contains the 2D arrays which hold the gene levels
 		for (int i = 0; i < STEP; i++) {
             string res;
@@ -97,7 +100,7 @@ int main(int argc, char** argv)
             cerr << "Simulating set " << p + i << endl; // Used for creating output file names specific to the paramater
 	    	int t_steps = int(minutes / eps); // Set the amount of time steps to be used in the simulation
 		 
-	    	rates temp_rate = rateValues[i]; // Temporary rate structure used to alter the protein synthesis rates in order to create mutants
+	    	rates *temp_rate = rateValues[i]; // Temporary rate structure used to alter the protein synthesis rates in order to create mutants
 	    	data of_wt, of_her1, of_her7, of_her13, of_her713, of_delta; // Data structures for storing oscillation features
 	    	bool wt = false, her1 = false, her7 = false, her13 = false, her713 = false, delta = false;  // Booleans to see if we met mutant conditions on each iteration
 		 
@@ -125,7 +128,8 @@ int main(int argc, char** argv)
             wt = fwildtype(of_wt.peaktotrough1, of_wt.peaktotrough2); 
             if (!wt) continue; 
 
-            temp_rate.rates_base[RPSDELTA] = 0.0; 
+            double original_psd = temp_rate->rates_base[RPSDELTA]; 
+            temp_rate->rates_base[RPSDELTA] = 0.0; 
             reset_rate(temp_rate);
             delta = run_mutant(&gene, t_steps, eps, temp_rate, of_delta, false, max_prop, x, y);
             if (toPrint) {
@@ -134,9 +138,10 @@ int main(int argc, char** argv)
 	    	if (!delta) continue; 
             delta = fd_mutant(of_delta.period, of_delta.amplitude, of_wt.period); 
             if (!delta) continue; 
-            temp_rate.rates_base[RPSDELTA] = rateValues[i].rates_base[RPSDELTA]; 
+            temp_rate->rates_base[RPSDELTA] = original_psd; 
             
-            temp_rate.rates_base[RPSH13] = 0.0;
+            double original_psh13 = temp_rate->rates_base[RPSH13]; 
+            temp_rate->rates_base[RPSH13] = 0.0;
             reset_rate(temp_rate); 
             her13 = run_mutant(&gene, t_steps, eps, temp_rate, of_her13, false, max_prop, x, y);
             if (toPrint) {
@@ -145,9 +150,11 @@ int main(int argc, char** argv)
 	    	if (!her13) continue; 
             her13 = f13_mutant(of_her13.period, of_her13.amplitude, of_wt.period);
             if (!her13) continue; 
-            temp_rate.rates_base[RPSH13] = rateValues[i].rates_base[RPSH13]; 
+            temp_rate->rates_base[RPSH13] = original_psh13; 
             
-            temp_rate.rates_base[RPSH1] = 0.0;
+
+            double original_psh1 = temp_rate->rates_base[RPSH1];
+            temp_rate->rates_base[RPSH1] = 0.0;
             reset_rate(temp_rate);
             her1 = run_mutant(&gene, t_steps, eps, temp_rate, of_her1, false, max_prop, x, y);
             if (toPrint) {
@@ -156,9 +163,10 @@ int main(int argc, char** argv)
 	    	if (!her1) continue;
             her1 = f1_mutant(of_her1.period, of_her1.amplitude, of_wt.period);
             if (!her1) continue;
-            temp_rate.rates_base[RPSH1] = rateValues[i].rates_base[RPSH1];
+            temp_rate->rates_base[RPSH1] = original_psh1;
             
-            temp_rate.rates_base[RPSH7] = 0.0;
+            double original_psh7 = temp_rate->rates_base[RPSH7];
+            temp_rate->rates_base[RPSH7] = 0.0;
             reset_rate(temp_rate);
             her7 = run_mutant(&gene, t_steps, eps, temp_rate, of_her7, true, max_prop, x, y);
             if (toPrint) {
@@ -167,9 +175,11 @@ int main(int argc, char** argv)
             if (!her7) continue;
             her7 = f7_mutant(of_her7.period, of_her7.amplitude, of_wt.period);
             if (!her7) continue;
-            temp_rate.rates_base[RPSH7] = rateValues[i].rates_base[RPSH7];
+            temp_rate->rates_base[RPSH7] = original_psh7;
             
-            temp_rate.rates_base[RPSH7] = 0.0, temp_rate.rates_base[RPSH13] = 0.0;
+            original_psh7 = temp_rate->rates_base[RPSH7];
+            original_psh13 =  temp_rate->rates_base[RPSH13];
+            temp_rate->rates_base[RPSH7] = 0.0, temp_rate->rates_base[RPSH13] = 0.0;
             reset_rate(temp_rate);
             her713 = run_mutant(&gene, t_steps, eps, temp_rate, of_her713, true, max_prop, x, y);
             if (toPrint) {
@@ -178,8 +188,8 @@ int main(int argc, char** argv)
 	    	if (!her713) continue;
             her713 = f713_mutant(of_her713.period, of_her713.amplitude, of_wt.period);
             if (!her713) continue;
-            temp_rate.rates_base[RPSH7] = rateValues[i].rates_base[RPSH7];
-            temp_rate.rates_base[RPSH13] = rateValues[i].rates_base[RPSH13];
+            temp_rate->rates_base[RPSH7] = original_psh7;
+            temp_rate->rates_base[RPSH13] = original_psh13;
 
             /*
              If the paramater set created oscillatory behavior in wild type and all the mutant conditions were satisfied:
@@ -197,15 +207,14 @@ int main(int argc, char** argv)
                 oft << of_her13.period << "," << of_her13.amplitude << "," << of_her13.peaktotrough1 << ",";
                 oft << of_her713.period << "," << of_her713.amplitude << "," << of_her713.peaktotrough1 << ",";
             }
-            
-            allpassed<<temp_rate.rates_base[RPSH1]<<","<<temp_rate.rates_base[RPSH7]<<","<<temp_rate.rates_base[RPSH13]<<","<<temp_rate.rates_base[RPSDELTA]<<","<<temp_rate.rates_base[RPDH1]<<","<<temp_rate.rates_base[RPDH7]<<",";
-	    	allpassed<<temp_rate.rates_base[RPDH13]<<","<<temp_rate.rates_base[RPDDELTA]<<","<<temp_rate.rates_base[RMSH1]<<","<<temp_rate.rates_base[RMSH7]<<","<<temp_rate.rates_base[RMSH13]<<","<<temp_rate.rates_base[RMSDELTA]<<",";
-	    	allpassed<<temp_rate.rates_base[RMDH1]<<","<<temp_rate.rates_base[RMDH7]<<","<<temp_rate.rates_base[RMDH13]<<","<<temp_rate.rates_base[RMDDELTA]<<"," <<temp_rate.rates_base[RDDGH1H1] << "," << temp_rate.rates_base[RDDGH1H7] << ",";
-	    	allpassed<<temp_rate.rates_base[RDDGH1H13]<<","<<temp_rate.rates_base[RDDGH7H7]<<","<<temp_rate.rates_base[RDDGH7H13]<<","<<temp_rate.rates_base[RDDGH13H13]<<",";
-	    	allpassed<<temp_rate.rates_base[RDELAYMH1]<<","<<temp_rate.rates_base[RDELAYMH7]<<","<<temp_rate.rates_base[RDELAYMH13]<<","<<temp_rate.rates_base[RDELAYMDELTA]<<","<<temp_rate.rates_base[RDELAYPH1]<<",";
-	    	allpassed<<temp_rate.rates_base[RDELAYPH7]<<","<<temp_rate.rates_base[RDELAYPH13]<<","<<temp_rate.rates_base[RDELAYPDELTA]<<","<<temp_rate.rates_base[RDAH1H1]<<","<<temp_rate.rates_base[RDDIH1H1]<<","<<temp_rate.rates_base[RDAH1H7]<<",";
-	    	allpassed<<temp_rate.rates_base[RDDIH1H7]<<","<<temp_rate.rates_base[RDAH1H13]<<","<<temp_rate.rates_base[RDDIH1H13]<<","<<temp_rate.rates_base[RDAH7H7]<<","<<temp_rate.rates_base[RDDIH7H7]<<","<<temp_rate.rates_base[RDAH7H13]<<",";
-	    	allpassed<<temp_rate.rates_base[RDDIH7H13]<<","<<temp_rate.rates_base[RDAH13H13]<<","<<temp_rate.rates_base[RDDIH13H13]<<","<<temp_rate.rates_base[RCRITPH1H1] << "," << temp_rate.rates_base[RCRITPH7H13] <<","<<temp_rate.rates_base[RCRITPDELTA]<<endl;
+            allpassed<<temp_rate->rates_base[RPSH1]<<","<<temp_rate->rates_base[RPSH7]<<","<<temp_rate->rates_base[RPSH13]<<","<<temp_rate->rates_base[RPSDELTA]<<","<<temp_rate->rates_base[RPDH1]<<","<<temp_rate->rates_base[RPDH7]<<",";
+	    	allpassed<<temp_rate->rates_base[RPDH13]<<","<<temp_rate->rates_base[RPDDELTA]<<","<<temp_rate->rates_base[RMSH1]<<","<<temp_rate->rates_base[RMSH7]<<","<<temp_rate->rates_base[RMSH13]<<","<<temp_rate->rates_base[RMSDELTA]<<",";
+	    	allpassed<<temp_rate->rates_base[RMDH1]<<","<<temp_rate->rates_base[RMDH7]<<","<<temp_rate->rates_base[RMDH13]<<","<<temp_rate->rates_base[RMDDELTA]<<"," <<temp_rate->rates_base[RDDGH1H1] << "," << temp_rate->rates_base[RDDGH1H7] << ",";
+	    	allpassed<<temp_rate->rates_base[RDDGH1H13]<<","<<temp_rate->rates_base[RDDGH7H7]<<","<<temp_rate->rates_base[RDDGH7H13]<<","<<temp_rate->rates_base[RDDGH13H13]<<",";
+	    	allpassed<<temp_rate->rates_base[RDELAYMH1]<<","<<temp_rate->rates_base[RDELAYMH7]<<","<<temp_rate->rates_base[RDELAYMH13]<<","<<temp_rate->rates_base[RDELAYMDELTA]<<","<<temp_rate->rates_base[RDELAYPH1]<<",";
+	    	allpassed<<temp_rate->rates_base[RDELAYPH7]<<","<<temp_rate->rates_base[RDELAYPH13]<<","<<temp_rate->rates_base[RDELAYPDELTA]<<","<<temp_rate->rates_base[RDAH1H1]<<","<<temp_rate->rates_base[RDDIH1H1]<<","<<temp_rate->rates_base[RDAH1H7]<<",";
+	    	allpassed<<temp_rate->rates_base[RDDIH1H7]<<","<<temp_rate->rates_base[RDAH1H13]<<","<<temp_rate->rates_base[RDDIH1H13]<<","<<temp_rate->rates_base[RDAH7H7]<<","<<temp_rate->rates_base[RDDIH7H7]<<","<<temp_rate->rates_base[RDAH7H13]<<",";
+	    	allpassed<<temp_rate->rates_base[RDDIH7H13]<<","<<temp_rate->rates_base[RDAH13H13]<<","<<temp_rate->rates_base[RDDIH13H13]<<","<<temp_rate->rates_base[RCRITPH1H1] << "," << temp_rate->rates_base[RCRITPH7H13] <<","<<temp_rate->rates_base[RCRITPDELTA]<<endl;
 	    }
         
         cerr << terminal_blue << "Done with " << terminal_reset << STEP << " parameter sets." << endl;

@@ -65,18 +65,18 @@
 
 // Dimer association rates
 #define RDAH1H1			30
-#define RDAH1H7			31
-#define RDAH1H13		32
-#define RDAH7H7			33
-#define RDAH7H13		34
-#define RDAH13H13		35
+#define RDAH1H7			32
+#define RDAH1H13		34
+#define RDAH7H7			36
+#define RDAH7H13		38
+#define RDAH13H13		40
 
 // Dimer dissociation rates
-#define RDDIH1H1		36
-#define RDDIH1H7		37
-#define RDDIH1H13		38
-#define RDDIH7H7		39
-#define RDDIH7H13		40
+#define RDDIH1H1		31
+#define RDDIH1H7		33
+#define RDDIH1H13		35
+#define RDDIH7H7		37
+#define RDDIH7H13		39
 #define RDDIH13H13		41
 
 

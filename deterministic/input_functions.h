@@ -33,7 +33,7 @@ using namespace std;
 #define terminal_no_memory terminal_red << "Not enough memory!" << terminal_reset
 
 void readFile(char **buffer, char* input_file);
-void create_buffer (char *buffer, char *input_file);
+void create_buffer (char **buffer, char *input_file);
 void terminal_color();
 void store_filename (char** field, const char* value);
 void checkArgs(int, char**, char**, char**, char**, char**, bool&, int&, int&, int&, double&, double&, bool&, int&, int&);
